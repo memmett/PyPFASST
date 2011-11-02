@@ -1,0 +1,8 @@
+*~
+.svn
+
+*.pyc
+*.pyo
+
+.coverage
+_*

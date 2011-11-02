@@ -1,0 +1,12 @@
+PyPFASST
+========
+
+PyPFASST is a Python implementation of the Parallel Full Approximation
+Scheme in Space and Time (PFASST) algorithm.  Please see:
+
+  http://www.unc.edu/~mwemmett/pfasst/
+
+for more details.
+
+PyPFASST is licensed under a BSD-style license.  Please see LICENSE
+for details.

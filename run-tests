@@ -1,0 +1,5 @@
+#!/bin/sh
+
+NOSETESTS=/usr/bin/nosetests
+
+python $NOSETESTS #--with-coverage --cover-package=pfasst
