@@ -29,56 +29,74 @@
 
 
 class FEval(object):
-    """Function evaluation base class.
+  """Function evaluation base class.
 
-    Methods in this class should be overridden with problem specific
-    evaluators.  Each instance of the class is associated with a
-    PFASST level.  The shape of the unknowns associated with this
-    evaluator/level should be stored in the instance variable *shape*.
-    The total number of unknowns associated with this evaluator/level
-    should be stored in the instance variable *size* (note also that
-    *size* should be the product of *shape*).  If the function is
-    broken into several pieces (ie, explicit and pieces), then the
-    number of pieces should be stored in the instance variable
-    *pieces* (each piece has shape *shape* and size *size*).
+  Methods in this class should be overridden with problem specific
+  evaluators.  Each instance of the class is associated with a
+  PFASST level.  The shape of the unknowns associated with this
+  evaluator/level should be stored in the instance variable *shape*.
+  The total number of unknowns associated with this evaluator/level
+  should be stored in the instance variable *size* (note also that
+  *size* should be the product of *shape*).  If the function is
+  broken into several pieces (ie, explicit and pieces), then the
+  number of pieces should be stored in the instance variable
+  *pieces* (each piece has shape *shape* and size *size*).
 
-    See also :py:class:`pfasst.explicit.ExplicitFEval` and
-    :py:class:`pfasst.imex.IMEXFEval`.
+  See also :py:class:`pfasst.explicit.ExplicitFEval` and
+  :py:class:`pfasst.imex.IMEXFEval`.
 
-    Attributes:
+  Attributes:
 
-    .. attribute:: pieces
+  .. attribute:: pieces
 
-       Number of function evaluation pieces.  For example, for a
-       purely explicit time stepper, this would 1, and for an
-       implicit/explicit time stepper, this would be 2.
+     Number of function evaluation pieces.  For example, for a
+     purely explicit time stepper, this would 1, and for an
+     implicit/explicit time stepper, this would be 2.
 
-    .. attribute:: shape
+  .. attribute:: shape
 
-       Shape of the unknowns associated with this evaluator.
+     Shape of the unknowns associated with this evaluator.
 
-    .. attribute:: size
+  .. attribute:: size
 
-       Number of unknown associated with this evaluator (this should
-       be the product of the *shape* attribute).
+     Number of unknown associated with this evaluator (this should
+     be the product of the *shape* attribute).
+
+  """
+
+
+  def evaluate(self, y, t, f, **kwargs):
+    """Evaluate function values *f(y, t)*.
+
+    :param y: y (numpy array)
+    :param t: time (float)
+    :param f: result (numpy array)
+
+    The result should be stored in *f*.
+
+    **This method should be overridden.**
+
+    By default, this sets *f* to 0.
 
     """
 
-    def evaluate(self, y, t, f, **kwargs):
-        """Evaluate function values *f(y, t)*.
+    f[...] = 0.0
 
-        :param y: y (numpy array)
-        :param t: time (float)
-        :param f: result (numpy array)
 
-        The (flattened) result is stored in *f*.
+  def forcing(self, t, f, **kwargs):
+    """Evaluate forcing values *f(t)*.
 
-        **This method should be overridden.**
+    :param t: time (float)
+    :param f: result (numpy array)
 
-        By default, this sets *f* to 0.
+    The result should be stored in *f*.
 
-        """
+    **This method should be overridden.**
 
-        f[...] = 0.0
+    By default, this sets *f* to 0.
+
+    """
+
+    f[...] = 0.0
 
 
