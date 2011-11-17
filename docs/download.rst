@@ -35,14 +35,7 @@ PIP::
 $ sudo apt-get install python-pip
 $ sudo pip install mpi4py
 
-PyPFASST comes with a limited set of predefined SDC quadruate rules.
-If you have `SymPy`_ installed, PyPFASST can symbolically compute
-arbitrary SDC quadrature rules.  To install the latest version of
-SymPy::
 
-$ sudo pip install https://github.com/sympy/sympy/tarball/master
-
-
-If you plan on manipulating PyPFASST, installing the above Python
-packages in a virtual environment is highly recommended.  Please see
-the `virtualenv`_ website for more information.
+.. _`PyPFASST project page`: https://github.com/memmett/PyPFASST
+.. _`mpi4py`: http://mpi4py.scipy.org/
+.. _`NumPy`: http://www.scipy.org/

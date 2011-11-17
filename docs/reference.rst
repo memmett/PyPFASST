@@ -59,11 +59,11 @@ MPI
    :members:
 
 
-Options
-^^^^^^^
+.. Options
+.. ^^^^^^^
 
-.. automodule:: pfasst.options
-   :members:
+.. .. automodule:: pfasst.options
+..    :members:
 
 
 Low-level routines (guts)
