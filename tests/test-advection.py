@@ -19,7 +19,7 @@ def test_advection_rk():
     last_error = float(stdout[-1].split()[-1])
     print 'RK4 log10(error):', last_error
 
-    assert(last_error < -7)
+    assert(last_error < -6)
 
 
 # def test_advection_2d():
