@@ -93,14 +93,24 @@ class SerialRunner(Runner):
       self.state.block  = block
       self.state.step   = block
 
-      # set initial condtion and evaluate at finest level
+      # set initial condtion and spread to all nodes
       F.qSDC[0] = F.q0
-      F.feval.evaluate(F.q0, t0, F.fSDC[:,0]) # XXX: this is extra work
-
-      # spread to all substeps at finest level
       for n in range(1, F.sdc.nnodes):
         F.qSDC[n] = F.qSDC[0]
-        F.fSDC[:,n] = F.fSDC[:,0]
+
+      # add integral of forcing term and evaluate at all nodes
+      if getattr(F, 'forced', False) is True:
+        # XXX: integrate
+
+        # evaluate at all nodes
+        for n in range(F.sdc.nnodes):
+          F.feval.evaluate(F.qSDC[n], t0, F.fSDC[:,n])
+
+      else:
+        # evaluate at first node and spread
+        F.feval.evaluate(F.qSDC[0], t0, F.fSDC[:,0])
+        for n in range(1, F.sdc.nnodes):
+          F.fSDC[:,n] = F.fSDC[:,0]
 
       # sdc sweeps
       for k in range(iterations):

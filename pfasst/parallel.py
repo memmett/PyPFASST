@@ -158,14 +158,24 @@ class ParallelRunner(Runner):
     except ValueError:
       raise ValueError, 'initial condition shape mismatch'
 
-    # set initial condtion and evaluate at finest level
+    # set initial condtion and spread to all nodes
     T.qSDC[0] = T.q0
-    T.feval.evaluate(T.q0, t0, T.fSDC[:,0])
-
-    # spread to remaining nodes at finest level
     for n in range(1, T.sdc.nnodes):
       T.qSDC[n]   = T.qSDC[0]
-      T.fSDC[:,n] = T.fSDC[:,0]
+
+    # add integral of forcing term and evaluate at all nodes
+    if getattr(T, 'forced', False) is True:
+      # XXX: integrate
+
+      # evaluate at all nodes
+      for n in range(T.sdc.nnodes):
+        T.feval.evaluate(T.qSDC[n], t0, T.fSDC[:,n])
+
+    else:
+      # evaluate at first node and spread
+      T.feval.evaluate(T.qSDC[0], t0, T.fSDC[:,0])
+      for n in range(1, T.sdc.nnodes):
+        T.fSDC[:,n] = T.fSDC[:,0]
 
     # restrict finest level to coarser levels
     for F, G in self.fine_to_coarse:

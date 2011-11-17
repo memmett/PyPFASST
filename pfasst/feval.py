@@ -62,6 +62,11 @@ class FEval(object):
      Number of unknown associated with this evaluator (this should
      be the product of the *shape* attribute).
 
+  .. attribute:: forced
+
+     True if time-dependent forcing should be added.  If False, the
+     *forcing* method is ignored.
+
   """
 
 
