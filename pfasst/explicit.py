@@ -5,7 +5,7 @@ ODEs of the form
 
   \frac{d}{dt} y(x,t) = f(y,t) + b(t)
 
-where the solver treats $f$ explicitly.
+where the solver treats :math:`f` explicitly.
 
 """
 
@@ -91,8 +91,7 @@ class ExplicitSDC(sdc.SDC):
 
 
   def sweep(self, b, t0, dt, qSDC, fSDC, feval, **kwargs):
-    """Perform one SDC sweep with new initial conditions and add FAS
-    corrections.
+    r"""Perform one SDC sweep.
 
     :param t0:   initial time
     :param b:    right hand side (numpy array of size ``(nnodes,...)``)
@@ -108,12 +107,13 @@ class ExplicitSDC(sdc.SDC):
 
     .. math::
 
-      \begin{multline}
-        U^{k+1}_{m+1} = U^k_m + \Delta t_m
-                 f(t_{m}, U^{k+1}_{m}) \bigr] \\
-        + \vec{S}^{m,m+1} \, f(\vec{t}, \vec{U}^{k}).
-      \end{multline}
+      q^{k+1}_{m+1} = q^{k+1}_m
+                      + \Delta t_m f(t_m, q^{k+1}_m)
+                      + S_m^{m+1} \, f(\vec{t}, \vec{q}^k)
+                      + b_{m+1}
 
+    where :math:`m = 0 \ldots M`.  Note that the initial condition
+    :math:`q^{k+1}_0` is assumed to be stored in ``b[0]``.
 
     """
 
@@ -123,22 +123,20 @@ class ExplicitSDC(sdc.SDC):
     shape  = fSDC.shape[2:]
     size   = feval.size
 
+    # flatten so we can use np.dot
     fSDCf = fSDC.reshape((nnodes, size))
 
     # integrate f
-    rhsf = dt * np.dot(exp, fSDCf)
-    rhs  = rhsf.reshape((nnodes-1,)+shape)
+    rhs = dt * np.dot(exp, fSDCf)
+    rhs = rhs.reshape((nnodes-1,)+shape)
 
     # add b
     if b is not None:
       rhs = rhs + b[1:]
 
-    # allocate, set initial condition, evaluate at initial condition
-    f1 = np.zeros((1,) + feval.shape, dtype=fSDC.dtype) # can we dump this?
-
+    # set initial condition and eval
     qSDC[0] = b[0]
-    feval.evaluate(qSDC[0], t0, f1, **kwargs)
-    fSDC[0] = f1
+    feval.evaluate(qSDC[0], t0, fSDC[0,0], **kwargs)
 
     # sub time-stepping
     t = t0
@@ -147,6 +145,5 @@ class ExplicitSDC(sdc.SDC):
     for m in range(self.nnodes-1):
       t = t + dtsdc[m]
 
-      qSDC[m+1] = qSDC[m] + dtsdc[m]*f1 + rhs[m]
-      feval.evaluate(qSDC[m+1], t, f1, **kwargs)
-      fSDC[0,m+1] = f1[0]
+      qSDC[m+1] = qSDC[m] + dtsdc[m]*fSDC[0,m] + rhs[m]
+      feval.evaluate(qSDC[m+1], t, fSDC[0,m+1], **kwargs)

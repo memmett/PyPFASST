@@ -154,8 +154,7 @@ class IMEXSDC(sdc.SDC):
 
 
   def sweep(self, b, t0, dt, qSDC, fSDC, feval, **kwargs):
-    r"""Perform one SDC sweep with new initial conditions and add FAS
-    corrections.
+    r"""Perform one SDC sweep.
 
     :param b:    right hand side (numpy array of size ``(nnodes,nqvar)``)
     :param t0:   initial time
@@ -167,19 +166,20 @@ class IMEXSDC(sdc.SDC):
 
     Note that *qSDC* and *fSDC* are over-written.
 
-    The sweep performed uses forward/fackward Euler time-stepping:
-
-    XXX
+    The sweep performed uses forward/backward Euler time-stepping:
 
     .. math::
 
       \begin{multline}
-        U^{k+1}_{m+1} = U^k_m + \Delta t_m
-            \bigl[ f_I(t_{m+1}, U^{k+1}_{m+1}) +
-                 f_E(t_{m}, U^{k+1}_{m}) \bigr] \\
-        + \vec{S}^{m,m+1}_E \, f_E(\vec{t}, \vec{U}^{k})
-        + \vec{S}^{m,m+1}_I \, f_I(\vec{t}, \vec{U}^{k}).
+        q^{k+1}_{m+1} = q^{k+1}_m + \Delta t_m
+            \bigl[ f_I(t_{m+1}, q^{k+1}_{m+1}) +
+                 f_E(t_{m}, q^{k+1}_{m}) \bigr] \\
+        + S^{m,m+1}_E \, f_E(\vec{t}, \vec{q}^{k})
+        + S^{m,m+1}_I \, f_I(\vec{t}, \vec{q}^{k}) + b_{m+1}
       \end{multline}
+
+    where :math:`m = 0 \ldots M`.  Note that the initial condition
+    :math:`q^{k+1}_0` is assumed to be stored in ``b[0]``.
 
     """
 
@@ -191,9 +191,12 @@ class IMEXSDC(sdc.SDC):
     shape  = fSDC.shape[2:]
     size   = feval.size
 
-    fSDCf = fSDC.reshape((pieces, nnodes, size)) # flatten so we can use np.dot
-    rhs   = dt * (np.dot(exp, fSDCf[0]) + np.dot(imp, fSDCf[1]))
-    rhs   = rhs.reshape((nnodes-1,)+shape)       # unflatten
+    # flatten so we can use np.dot
+    fSDCf = fSDC.reshape((pieces, nnodes, size))
+
+    # integrate f
+    rhs = dt * (np.dot(exp, fSDCf[0]) + np.dot(imp, fSDCf[1]))
+    rhs = rhs.reshape((nnodes-1,)+shape)
 
     # add b
     if b is not None:
