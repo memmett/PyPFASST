@@ -30,6 +30,7 @@
 import math
 import numpy as np
 
+from forcing import add_forcing
 from runner import Runner
 
 from options import db as optdb
@@ -93,14 +94,12 @@ class SerialRunner(Runner):
       self.state.block  = block
       self.state.step   = block
 
-      # set initial condtion and spread to all nodes
+      # set initial condtion
       F.qSDC[0] = F.q0
-      for n in range(1, F.sdc.nnodes):
-        F.qSDC[n] = F.qSDC[0]
 
       # add integral of forcing term and evaluate at all nodes
-      if getattr(F, 'forced', False) is True:
-        # XXX: integrate
+      if getattr(F.feval, 'forced', False) is True:
+        add_forcing(F.qSDC, t0, dt, F, **kwargs)
 
         # evaluate at all nodes
         for n in range(F.sdc.nnodes):
@@ -110,6 +109,7 @@ class SerialRunner(Runner):
         # evaluate at first node and spread
         F.feval.evaluate(F.qSDC[0], t0, F.fSDC[:,0])
         for n in range(1, F.sdc.nnodes):
+          F.qSDC[n]   = F.qSDC[0]
           F.fSDC[:,n] = F.fSDC[:,0]
 
       # sdc sweeps

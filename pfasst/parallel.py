@@ -37,6 +37,7 @@ from interpolate import interpolate_correction_time_space as interpolate_time_sp
 from interpolate import interpolate_correction as interpolate
 from interpolate import time_interpolation_matrix
 from fas import fas
+from forcing import add_forcing
 
 from runner import Runner
 
@@ -158,14 +159,12 @@ class ParallelRunner(Runner):
     except ValueError:
       raise ValueError, 'initial condition shape mismatch'
 
-    # set initial condtion and spread to all nodes
+    # set initial condtion
     T.qSDC[0] = T.q0
-    for n in range(1, T.sdc.nnodes):
-      T.qSDC[n]   = T.qSDC[0]
 
     # add integral of forcing term and evaluate at all nodes
-    if getattr(T, 'forced', False) is True:
-      # XXX: integrate
+    if getattr(T.feval, 'forced', False) is True:
+      add_forcing(T.qSDC, t0, dt, T, **kwargs)
 
       # evaluate at all nodes
       for n in range(T.sdc.nnodes):
@@ -175,6 +174,7 @@ class ParallelRunner(Runner):
       # evaluate at first node and spread
       T.feval.evaluate(T.qSDC[0], t0, T.fSDC[:,0])
       for n in range(1, T.sdc.nnodes):
+        T.qSDC[n]   = T.qSDC[0]
         T.fSDC[:,n] = T.fSDC[:,0]
 
     # restrict finest level to coarser levels
