@@ -153,7 +153,7 @@ class IMEXSDC(sdc.SDC):
     self.dsdc = self.nodes[1:] - self.nodes[:-1]
 
 
-  def sweep(self, b, t0, dt, qSDC, fSDC, feval, **kwargs):
+  def sweep(self, b, t0, dt, qSDC, fSDC, feval, gSDC=None, **kwargs):
     r"""Perform one SDC sweep.
 
     :param b:    right hand side (numpy array of size ``(nnodes,nqvar)``)
@@ -208,6 +208,9 @@ class IMEXSDC(sdc.SDC):
     feval.f1_evaluate(qSDC[0], t0, fSDC[0,0], **kwargs)
     feval.f2_evaluate(qSDC[0], t0, fSDC[1,0], **kwargs)
 
+    if gSDC is not None:
+      fSDC[0,0] += gSDC[0]
+
     # sub time-stepping
     t = t0
     dtsdc = dt * self.dsdc
@@ -219,3 +222,6 @@ class IMEXSDC(sdc.SDC):
 
       feval.f2_solve(y, qSDC[m+1], t, dtsdc[m], fSDC[1,m+1], **kwargs)
       feval.f1_evaluate(qSDC[m+1], t, fSDC[0,m+1], **kwargs)
+
+      if gSDC is not None:
+        fSDC[0,m+1] += gSDC[m+1]

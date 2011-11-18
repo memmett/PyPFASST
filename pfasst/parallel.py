@@ -37,7 +37,6 @@ from interpolate import interpolate_correction_time_space as interpolate_time_sp
 from interpolate import interpolate_correction as interpolate
 from interpolate import time_interpolation_matrix
 from fas import fas
-from forcing import add_forcing
 
 from runner import Runner
 
@@ -51,6 +50,9 @@ def eval_at_sdc_nodes(t0, dt, qSDC, fSDC, F, **kwargs):
     t = t0 + dt*F.sdc.nodes[m]
 
     F.feval.evaluate(qSDC[m], t, fSDC[:,m], **kwargs)
+
+  if F.forcing:
+    fSDC[0] += F.gSDC
 
 
 ###############################################################################
@@ -78,6 +80,9 @@ class ParallelRunner(Runner):
       levels[l].bSDC  = np.zeros((nnodes,)+shape, dtype=dtype)
       levels[l].qSDC  = np.zeros((nnodes,)+shape, dtype=dtype)
       levels[l].fSDC  = np.zeros((pieces,nnodes,)+shape, dtype=dtype)
+
+      if levels[l].forcing:
+        levels[l].gSDC = np.zeros((nnodes,)+shape, dtype=dtype)
 
     self.fine_to_coarse = []
     for l in range(nlevels-1):
@@ -162,20 +167,21 @@ class ParallelRunner(Runner):
     # set initial condtion
     T.qSDC[0] = T.q0
 
-    # add integral of forcing term and evaluate at all nodes
-    if getattr(T.feval, 'forced', False) is True:
-      add_forcing(T.qSDC, t0, dt, T, **kwargs)
+    # evaluate at first node and spread
+    T.feval.evaluate(T.qSDC[0], t0, T.fSDC[:,0])
+    for n in range(1, T.sdc.nnodes):
+      T.qSDC[n]   = T.qSDC[0]
+      T.fSDC[:,n] = T.fSDC[:,0]
 
-      # evaluate at all nodes
-      for n in range(T.sdc.nnodes):
-        T.feval.evaluate(T.qSDC[n], t0, T.fSDC[:,n])
+    # evaluate forcing terms
+    for F in self.levels:
+      if F.forcing:
+        for m in range(len(F.sdc.nodes)):
+          t = t0 + dt*F.sdc.nodes[m]
+          F.feval.forcing(t, F.gSDC[m], **kwargs)
 
-    else:
-      # evaluate at first node and spread
-      T.feval.evaluate(T.qSDC[0], t0, T.fSDC[:,0])
-      for n in range(1, T.sdc.nnodes):
-        T.qSDC[n]   = T.qSDC[0]
-        T.fSDC[:,n] = T.fSDC[:,0]
+    if T.forcing:
+      T.fSDC[0] += T.gSDC
 
     # restrict finest level to coarser levels
     for F, G in self.fine_to_coarse:
@@ -185,6 +191,7 @@ class ParallelRunner(Runner):
       eval_at_sdc_nodes(t0, dt, G.qSDC, G.fSDC, G, **kwargs)
 
       G.bSDC[1:] += fas(dt, F.fSDC, G.fSDC, F, G, **kwargs)
+
 
 
   #############################################################################
@@ -217,7 +224,7 @@ class ParallelRunner(Runner):
 
       B.bSDC[0] = B.q0
       for s in range(B.sweeps):
-        B.sdc.sweep(B.bSDC, t0, dt, B.qSDC, B.fSDC, B.feval, **kwargs)
+        B.sdc.sweep(B.bSDC, t0, dt, B.qSDC, B.fSDC, B.feval, gSDC=B.gSDC, **kwargs)
       B.qend[...] = B.qSDC[-1]
 
       B.call_hooks('post-sweep', **kwargs)
@@ -293,7 +300,7 @@ class ParallelRunner(Runner):
 
         F.bSDC[0] = F.q0
         for s in range(F.sweeps):
-          F.sdc.sweep(F.bSDC, t0, dt, F.qSDC, F.fSDC, F.feval, **kwargs)
+          F.sdc.sweep(F.bSDC, t0, dt, F.qSDC, F.fSDC, F.feval, gSDC=F.gSDC, **kwargs)
         F.qend[...] = F.qSDC[-1]
 
         F.call_hooks('post-sweep', **kwargs)
@@ -348,7 +355,7 @@ class ParallelRunner(Runner):
 
           F.bSDC[0] = F.q0
           for s in range(F.sweeps):
-            F.sdc.sweep(F.bSDC, t0, dt, F.qSDC, F.fSDC, F.feval, **kwargs)
+            F.sdc.sweep(F.bSDC, t0, dt, F.qSDC, F.fSDC, F.feval, gSDC=F.gSDC, **kwargs)
           F.qend[...] = F.qSDC[-1]
 
           F.call_hooks('post-sweep', **kwargs)
@@ -407,7 +414,6 @@ class ParallelRunner(Runner):
       self.predictor(t0, dt, **kwargs)
 
       # iterations
-
       for k in range(iterations):
         self.state.iteration = k
         self.iteration(k, t0, dt, cycles, **kwargs)

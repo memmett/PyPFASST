@@ -90,7 +90,7 @@ class ExplicitSDC(sdc.SDC):
     self.smat_exp = smat_exp
 
 
-  def sweep(self, b, t0, dt, qSDC, fSDC, feval, **kwargs):
+  def sweep(self, b, t0, dt, qSDC, fSDC, feval, gSDC=None, **kwargs):
     r"""Perform one SDC sweep.
 
     :param t0:   initial time
@@ -138,6 +138,9 @@ class ExplicitSDC(sdc.SDC):
     qSDC[0] = b[0]
     feval.evaluate(qSDC[0], t0, fSDC[0,0], **kwargs)
 
+    if gSDC is not None:
+      fSDC[0,0] += gSDC[0]
+
     # sub time-stepping
     t = t0
     dtsdc = dt * (self.nodes[1:] - self.nodes[:-1])
@@ -147,3 +150,6 @@ class ExplicitSDC(sdc.SDC):
 
       qSDC[m+1] = qSDC[m] + dtsdc[m]*fSDC[0,m] + rhs[m]
       feval.evaluate(qSDC[m+1], t, fSDC[0,m+1], **kwargs)
+
+      if gSDC is not None:
+        fSDC[0,m+1] += gSDC[m+1]

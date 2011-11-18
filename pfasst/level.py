@@ -54,6 +54,14 @@ class Level(object):
      The RHS for SDC sweeps (the initial conditions and FAS
      corrections are used to form the RHS).
 
+  .. attribute:: gSDC
+
+     Time dependent forcing evaluations at each SDC node.
+
+  .. attribute:: forcing
+
+     True if time dependent forcing is present.
+
   See the :meth:`~pfasst.pfasst.PFASST.add_level` and
   :meth:`~pfasst.runner.Runner.allocate` methods for more
   details.
@@ -69,6 +77,9 @@ class Level(object):
     self.bSDC = None            # right hand side for SDC sweeps
     self.qSDC = None            # unknown
     self.fSDC = None            # function evaluations
+    self.gSDC = None            # forcing evaluations
+
+    self.forcing = False        # no forcing by default
 
     self.qsend = None           # send buffer
     self.qrecv = None           # receive buffer

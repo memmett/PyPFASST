@@ -62,10 +62,13 @@ class FEval(object):
      Number of unknown associated with this evaluator (this should
      be the product of the *shape* attribute).
 
-  .. attribute:: forced
+  .. attribute:: forcing
 
-     True if time-dependent forcing should be added.  If False, the
-     *forcing* method is ignored.
+     Method to compute time-dependent forcing (efficiently).  Called as:
+
+       feval.forcing(t, f, **kwargs)
+
+     where t is time and f is where the force should be stored.
 
   """
 
@@ -86,22 +89,3 @@ class FEval(object):
     """
 
     f[...] = 0.0
-
-
-  def forcing(self, t, f, **kwargs):
-    """Evaluate forcing values *f(t)*.
-
-    :param t: time (float)
-    :param f: result (numpy array)
-
-    The result should be stored in *f*.
-
-    **This method should be overridden.**
-
-    By default, this sets *f* to 0.
-
-    """
-
-    f[...] = 0.0
-
-

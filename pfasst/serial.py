@@ -30,7 +30,6 @@
 import math
 import numpy as np
 
-from forcing import add_forcing
 from runner import Runner
 
 from options import db as optdb
@@ -57,6 +56,9 @@ class SerialRunner(Runner):
       levels[l].qSDC = np.zeros((nnodes,)+shape, dtype=dtype)
       levels[l].bSDC = np.zeros((nnodes,)+shape, dtype=dtype)
       levels[l].fSDC = np.zeros((pieces,nnodes,)+shape, dtype=dtype)
+
+      if levels[l].forcing:
+        levels[l].gSDC = np.zeros((nnodes,)+shape, dtype=dtype)
 
 
   #############################################################################
@@ -97,20 +99,18 @@ class SerialRunner(Runner):
       # set initial condtion
       F.qSDC[0] = F.q0
 
-      # add integral of forcing term and evaluate at all nodes
-      if getattr(F.feval, 'forced', False) is True:
-        add_forcing(F.qSDC, t0, dt, F, **kwargs)
+      # evaluate at first node and spread
+      F.feval.evaluate(F.qSDC[0], t0, F.fSDC[:,0])
+      for n in range(1, F.sdc.nnodes):
+        F.qSDC[n]   = F.qSDC[0]
+        F.fSDC[:,n] = F.fSDC[:,0]
 
-        # evaluate at all nodes
-        for n in range(F.sdc.nnodes):
-          F.feval.evaluate(F.qSDC[n], t0, F.fSDC[:,n])
+      if F.forcing:
+        for m in range(len(F.sdc.nodes)):
+          t = t0 + dt*F.sdc.nodes[m]
+          F.feval.forcing(t, F.gSDC[m], **kwargs)
 
-      else:
-        # evaluate at first node and spread
-        F.feval.evaluate(F.qSDC[0], t0, F.fSDC[:,0])
-        for n in range(1, F.sdc.nnodes):
-          F.qSDC[n]   = F.qSDC[0]
-          F.fSDC[:,n] = F.fSDC[:,0]
+        F.fSDC[0] += F.gSDC
 
       # sdc sweeps
       for k in range(iterations):
@@ -120,7 +120,7 @@ class SerialRunner(Runner):
 
         F.bSDC[0] = F.q0
         for s in range(F.sweeps):
-          F.sdc.sweep(F.bSDC, t0, dt, F.qSDC, F.fSDC, F.feval, **kwargs)
+          F.sdc.sweep(F.bSDC, t0, dt, F.qSDC, F.fSDC, F.feval, gSDC=F.gSDC, **kwargs)
         F.qend[...] = F.qSDC[-1]
 
         F.call_hooks('post-sweep', **kwargs)

@@ -218,6 +218,9 @@ class PFASST(object):
     level.hooks       = {}
     level.sweeps      = 1
 
+    if getattr(feval, 'forcing', None) is not None:
+      level.forcing = True
+
     self.levels.append(level)
 
 
