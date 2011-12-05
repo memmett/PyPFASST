@@ -208,7 +208,6 @@ class ParallelRunner(Runner):
     self.state.cycle = -1
     self.state.iteration = -1
     self.state.predictor = True
-
     B.call_hooks('pre-predictor', **kwargs)
 
     pred_iters = optdb.predictor_iterations or 1
@@ -235,8 +234,10 @@ class ParallelRunner(Runner):
 
     self.state.iteration = -1
     B.call_hooks('post-predictor', **kwargs)
+    self.state.predictor = False
 
     # interpolate coarest to finest and set initial conditions
+
     for F, G in self.coarse_to_fine:
       interpolate_time_space(F.qSDC, G.qSDC, F, G, **kwargs)
       eval_at_sdc_nodes(t0, dt, F.qSDC, F.fSDC, F, **kwargs)
@@ -245,7 +246,7 @@ class ParallelRunner(Runner):
       F.q0[...] = F.qSDC[0]
 
     for F in self.levels:
-      F.call_hooks('predictor', **kwargs)
+      F.call_hooks('end-predictor', **kwargs)
 
 
 
