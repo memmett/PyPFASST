@@ -78,6 +78,9 @@ class SerialRunner(Runner):
 
     #### set initial condition
 
+    if u0 is None:
+      raise ValueError, 'missing initial condition'
+
     try:
       F.q0[...] = u0
     except ValueError:

@@ -372,6 +372,9 @@ class ParallelRunner(Runner):
   def run(self, u0, dt, tend, iterations, cycle='V', **kwargs):
     """Run in parallel (PFASST)."""
 
+    if u0 is None:
+      raise ValueError, 'missing initial condition'
+
     #### short cuts, state, options
 
     levels  = self.levels
