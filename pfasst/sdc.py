@@ -29,7 +29,7 @@
 
 
 import numpy as np
-import warnings
+import quadrature
 
 class SDC(object):
   r"""SDC base class.
@@ -53,27 +53,8 @@ class SDC(object):
 
   def __init__(self, qtype, nnodes, refine=1, dtype=np.float64):
 
-    # try loading pre-computed sdc nodes
-    try:
-      import quadrature
-
-      nodes = quadrature.table[qtype,nnodes,refine]['nodes']
-      smat  = quadrature.table[qtype,nnodes,refine]['matrix']
-
-    except:
-      # try computing symbolically
-      try:
-        import mpsdcquad
-
-        (nodes, left) = mpsdcquad.nodes(qtype, nnodes, refine)
-        smat = mpsdcquad.smat(nodes, left)
-
-      except:
-
-        raise ValueError('Invalid SDC nodes.  '
-                         'SymPy is not installed, '
-                         'and pre-computed SDC tables for the requested '
-                         'nodes were not found.')
+    nodes = quadrature.table[qtype,nnodes,refine]['nodes']
+    smat  = quadrature.table[qtype,nnodes,refine]['matrix']
 
     self.nnodes = (nnodes-1)/refine + 1
     self.type   = qtype
