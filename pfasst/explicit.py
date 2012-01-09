@@ -136,7 +136,7 @@ class ExplicitSDC(sdc.SDC):
 
     # set initial condition and eval
     qSDC[0] = b[0]
-    feval.evaluate(qSDC[0], t0, fSDC[0,0], **kwargs)
+    feval.evaluate(qSDC[0], t0, fSDC[:,0], **kwargs)
 
     if gSDC is not None:
       fSDC[0,0] += gSDC[0]
@@ -149,7 +149,7 @@ class ExplicitSDC(sdc.SDC):
       t = t + dtsdc[m]
 
       qSDC[m+1] = qSDC[m] + dtsdc[m]*fSDC[0,m] + rhs[m]
-      feval.evaluate(qSDC[m+1], t, fSDC[0,m+1], **kwargs)
+      feval.evaluate(qSDC[m+1], t, fSDC[:,m+1], **kwargs)
 
       if gSDC is not None:
         fSDC[0,m+1] += gSDC[m+1]
