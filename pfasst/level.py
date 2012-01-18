@@ -116,7 +116,7 @@ class Level(object):
       if self.send_request:
         self.send_request.Wait()
 
-      self.qsend[:] = self.qend[:]
+      self.qsend[...] = self.qend
       self.send_request = self.mpi.comm.Isend(
         self.qsend, dest=self.mpi.forward, tag=tag)
 
@@ -151,7 +151,7 @@ class Level(object):
       self.recv_request.Wait()
 
     if not ignore:
-      self.q0[:] = self.qrecv[:]
+      self.q0[...] = self.qrecv
 
     self.call_hooks('post-receive')
 

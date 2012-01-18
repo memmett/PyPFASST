@@ -28,9 +28,6 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 
-import math
-import numpy as np
-
 from mpi4py import MPI
 
 import mpi
@@ -39,11 +36,7 @@ import serial
 import parallel
 import rk
 
-import imex
-import explicit
-
 from level import Level
-from options import db as optdb
 
 
 class PFASST(object):
