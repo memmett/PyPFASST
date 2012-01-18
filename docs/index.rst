@@ -38,13 +38,11 @@ parallelization.  If, for example,
 * have a problem in which the physics can modeled with various sets of
   equations with increasing computational complexity; then
 
-temporal paralellization might be attractive.  Check out the
-:doc:`examples <examples>` page to see some problems that PFASST has
-been applied to.
+temporal paralellization might be attractive.  Check out the `PFASST
+gallery`_ to see some problems that PFASST has been applied to.
 
 The maths behind the PFASST algorithm are described on the
-:doc:`maths` page.  Various aspects of the PFASST algorithm are also
-explored on the :doc:`maths` page.
+:doc:`maths` page.
 
 This work was supported by the Director, DOE Office of Science, Office
 of Advanced Scientific Computing Research, Office of Mathematics,
@@ -52,12 +50,6 @@ Information, and Computational Sciences, Applied Mathematical Sciences
 Program, under contract DE-SC0004011.  This work is currently authored
 by `Michael L. Minion`_ and `Matthew Emmett`_.  Contributions are
 welcome -- please contact `Matthew Emmett`_.
-
-.. News
-.. ----
-
-.. * August 19 2011: New results posted: :doc:`results/multilevel`
-.. * February 23 2011: New results posted: :doc:`results/coarse_sweeps`
 
 This website is a work in progress!
 
@@ -74,7 +66,6 @@ can be called from within Python.
 
 * :doc:`Download <download>` - download and installation instructions.
 * :doc:`Tutorial <tutorial>` - getting started and basic usage.
-* :doc:`Examples <examples>` - some examples.
 * :doc:`Overview <overview>` - design and interface overview.
 * :doc:`Reference <reference>` - reference and API documentation.
 
@@ -86,7 +77,6 @@ can be called from within Python.
    maths
    download
    tutorial
-   examples
    overview
    reference
 
@@ -104,3 +94,4 @@ please, dive right in by visiting the `PyPFASST project page`_.
 .. _`Michael L. Minion`: http://amath.unc.edu/Minion/Minion
 .. _`Matthew Emmett`: http://www.unc.edu/~mwemmett/
 .. _`PyPFASST project page`: https://github.com/memmett/PyPFASST
+.. _`PFASST gallery`: http://www.unc.edu/~mwemmett/pfasst_gallery.html
