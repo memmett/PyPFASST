@@ -219,14 +219,14 @@ class ParallelRunner(Runner):
         B.receive(k-1, blocking=True)
 
       # coarse sdc sweep
-      B.call_hooks('pre-sweep', **kwargs)
+      B.call_hooks('pre-predictor-sweep', **kwargs)
 
       B.bSDC[0] = B.q0
       for s in range(B.sweeps):
         B.sdc.sweep(B.bSDC, t0, dt, B.qSDC, B.fSDC, B.feval, gSDC=B.gSDC, **kwargs)
       B.qend[...] = B.qSDC[-1]
 
-      B.call_hooks('post-sweep', **kwargs)
+      B.call_hooks('post-predictor-sweep', **kwargs)
 
       # send result forward
       if rank < ntime-1:
