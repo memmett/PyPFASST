@@ -201,7 +201,9 @@ class PFASST(object):
     level = Level()
 
     level.feval       = feval
+    level.feval.level = level
     level.sdc         = sdc
+    level.sdc.level   = level
     level.interpolate = interpolate
     level.restrict    = restrict
 
@@ -210,6 +212,7 @@ class PFASST(object):
     level.state       = self.state
     level.hooks       = {}
     level.sweeps      = 1
+
 
     if getattr(feval, 'forcing', None) is not None:
       level.forcing = True

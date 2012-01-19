@@ -205,8 +205,13 @@ class IMEXSDC(sdc.SDC):
     # set initial condition and eval
     qSDC[0] = b[0]
 
+    self.level.state.node = 0
+    self.level.call_hooks('pre-feval', **kwargs)
+
     feval.f1_evaluate(qSDC[0], t0, fSDC[0,0], **kwargs)
     feval.f2_evaluate(qSDC[0], t0, fSDC[1,0], **kwargs)
+
+    self.level.call_hooks('post-feval', **kwargs)
 
     if gSDC is not None:
       fSDC[0,0] += gSDC[0]
@@ -220,8 +225,15 @@ class IMEXSDC(sdc.SDC):
 
       y = qSDC[m] + dtsdc[m]*fSDC[0,m] + rhs[m]
 
+      self.level.state.node = m+1
+      self.level.call_hooks('pre-feval', **kwargs)
+
       feval.f2_solve(y, qSDC[m+1], t, dtsdc[m], fSDC[1,m+1], **kwargs)
       feval.f1_evaluate(qSDC[m+1], t, fSDC[0,m+1], **kwargs)
 
+      self.level.call_hooks('post-feval', **kwargs)
+
       if gSDC is not None:
         fSDC[0,m+1] += gSDC[m+1]
+
+    self.level.state.node = -1

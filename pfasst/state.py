@@ -43,6 +43,7 @@ class State(object):
     self.block     = -1
     self.step      = -1
     self.cycle     = -1
+    self.node      = -1
     self.iteration = -1
     self.predictor = False
 

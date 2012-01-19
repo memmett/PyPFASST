@@ -65,6 +65,11 @@ class PFASSTMPI(object):
 
   """
 
+  def __init__(self, *args, **kwargs):
+
+    self.wrank    = MPI.COMM_WORLD.rank
+
+
   def create_simple_communicators(self, nspace, ntime, comm=MPI.COMM_WORLD):
     """Create MPI communicators using simple colouring.
 
