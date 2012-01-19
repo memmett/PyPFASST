@@ -430,9 +430,11 @@ class ParallelRunner(Runner):
         self.mpi.comm.Bcast(T.qend, root=self.mpi.ntime-1)
         u0 = T.qend
 
-      T.call_hooks('end-step', **kwargs)
+      for F in levels:
+        F.call_hooks('end-step', **kwargs)
 
 
     #### done
 
-    T.call_hooks('end', **kwargs)
+    for F in levels:
+      F.call_hooks('end', **kwargs)
