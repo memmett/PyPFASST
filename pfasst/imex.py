@@ -47,75 +47,85 @@ import sdc
 class IMEXFEval(feval.FEval):
   """IMEX function evaluation base class.
 
-  The explicit piece is *f1*.  The implicit piece is *f2*.
+  Methods in this class should be overridden with problem specific
+  evaluators.
+
+  Attributes:
+
+  .. attribute:: f1_evaluate
+
+     Evaluate explicit piece.  Called as
+
+     >>> f1_evaluate(q, t, f1, **kwargs)
+
+     The result should be stored in *f1*.
+
+  .. attribute:: f2_evaluate
+
+     Evalute implicit piece.  Called as
+
+     >>> f2_evaluate(q, t, f2, **kwargs)
+
+     The result should be stored in *f2*.
+
+  .. attribute:: f2_solve
+
+     Solve and evaluate implicit piece.  Called as
+
+     >>> f2_solve(rhs, q, t, dt, f2, **kwargs)
+
+     The implicit solution of :math:`q - \Delta t f_2(q) =
+     \text{RHS}`` should be stored in *q*.  The value of
+     :math:`f_2(q)` should be stored in *f2*.
+
+  Note that by omitting *f1eval* or both of *f2eval* and *f2solv*,
+  this becomes a purely implicit or explicit evaluator, respectively.
+
+  See also :py:class:`pfasst.feval.FEval`.
+
 
   """
 
-  def __init__(self):
+  @property
+  def pieces(self):
 
-    self.pieces = 2
+    f1eval = hasattr(self, 'f1_evaluate')
+    f2eval = hasattr(self, 'f2_evaluate')
+    f2solv = hasattr(self, 'f2_solve')
+
+    if not (f1eval or f2eval or f2solv):
+      raise ValueError('none of f1eval, f2eval, or f2solv are defined')
+
+    if f1eval and f2eval and f2solv:
+      return 2
+    elif f1eval and not (f2eval or f2solv):
+      return 1
+    elif not f1eval and (f2eval and f2solv):
+      return 1
+    else:
+      raise ValueError('feval is inconsistent')
 
 
-  def evaluate(self, y, t, f, **kwargs):
-    r"""Evaluate function values *f(y, t)*.
+  def evaluate(self, q, t, f, **kwargs):
+    """Evaluate function values *f(q, t)*.
 
-    :param y: y (numpy array)
+    :param q: q (numpy array)
     :param t: time (float)
     :param f: result (numpy array)
 
     The result is stored in *f*.
     """
 
-    self.f1_evaluate(y, t, f[0], **kwargs)
-    self.f2_evaluate(y, t, f[1], **kwargs)
+    f1eval = hasattr(self, 'f1_evaluate')
+    f2eval = hasattr(self, 'f2_evaluate')
 
-
-  def f1_evaluate(self, y, t, f1, **kwargs):
-    r"""Evaluate explicit function *f1(y, t)*.
-
-    :param y: y (numpy array)
-    :param t: time (float)
-    :param f1: result (numpy array)
-
-    The result is stored in *f1*.
-
-    By default, this sets *f1* to 0.
-    """
-
-    f1[...] = 0.0
-
-  def f2_evaluate(self, y, t, f2, **kwargs):
-    r"""Evaluate implicit function *f2(y, t)*.
-
-    :param y: y (numpy array)
-    :param t: time (float)
-    :param f2: result (numpy array)
-
-    The result is stored in *f2*.
-
-    By default, this is sets *f2* to 0.
-    """
-
-    f2[...] = 0.0
-
-
-  def f2_solve(self, rhs, y, t, dt, f2, **kwargs):
-    r"""Solve implicit equation *f2(y,t+dt) = rhs* and evaluate
-    implicit function *f2(y,t)*.
-
-    :param rhs: right hand side (numpy array)
-    :param y: y result (numpy array)
-    :param t: time (float)
-    :param dt: time step (float)
-    :param f2: result (numpy array)
-
-    The solution is stored in *y*, and the result is stored in *f2*.
-
-    By default, this sets *y* to *rhs* and *f2* to 0.
-    """
-
-    y[...] = rhs
-    f2[...] = 0.0
+    if f1eval and f2eval:
+      self.f1_evaluate(q, t, f[0], **kwargs)
+      self.f2_evaluate(q, t, f[1], **kwargs)
+    elif f1eval:
+      self.f1_evaluate(q, t, f[0], **kwargs)
+    else:
+      self.f2_evaluate(q, t, f[0], **kwargs)
 
 
 class IMEXSDC(sdc.SDC):
@@ -153,7 +163,7 @@ class IMEXSDC(sdc.SDC):
     self.dsdc = self.nodes[1:] - self.nodes[:-1]
 
 
-  def sweep(self, b, t0, dt, qSDC, fSDC, feval, gSDC=None, **kwargs):
+  def sweep(self, q0, t0, dt, qSDC, fSDC, feval, tau=None, gSDC=None, **kwargs):
     r"""Perform one SDC sweep.
 
     :param b:    right hand side (numpy array of size ``(nnodes,nqvar)``)
@@ -191,25 +201,39 @@ class IMEXSDC(sdc.SDC):
     shape  = fSDC.shape[2:]
     size   = feval.size
 
+    f1eval = hasattr(feval, 'f1_evaluate')
+    f2eval = hasattr(feval, 'f2_evaluate')
+
     # flatten so we can use np.dot
     fSDCf = fSDC.reshape((pieces, nnodes, size))
 
     # integrate f
-    rhs = dt * (np.dot(exp, fSDCf[0]) + np.dot(imp, fSDCf[1]))
+    if f1eval and f2eval:
+      rhs = dt * (np.dot(exp, fSDCf[0]) + np.dot(imp, fSDCf[1]))
+    elif f1eval:
+      rhs = dt * np.dot(exp, fSDCf[0])
+    else:
+      rhs = dt * np.dot(imp, fSDCf[0])
+
     rhs = rhs.reshape((nnodes-1,)+shape)
 
-    # add b
-    if b is not None:
-      rhs += b[1:]
+    # add tau
+    if tau is not None:
+      rhs += tau
 
     # set initial condition and eval
-    qSDC[0] = b[0]
+    qSDC[0] = q0
 
     self.level.state.node = 0
     self.level.call_hooks('pre-feval', **kwargs)
 
-    feval.f1_evaluate(qSDC[0], t0, fSDC[0,0], **kwargs)
-    feval.f2_evaluate(qSDC[0], t0, fSDC[1,0], **kwargs)
+    if f1eval and f2eval:
+      feval.f1_evaluate(qSDC[0], t0, fSDC[0,0], **kwargs)
+      feval.f2_evaluate(qSDC[0], t0, fSDC[1,0], **kwargs)
+    elif f1eval:
+      feval.f1_evaluate(qSDC[0], t0, fSDC[0,0], **kwargs)
+    else:
+      feval.f2_evaluate(qSDC[0], t0, fSDC[0,0], **kwargs)
 
     self.level.call_hooks('post-feval', **kwargs)
 
@@ -223,13 +247,27 @@ class IMEXSDC(sdc.SDC):
     for m in range(self.nnodes-1):
       t += dtsdc[m]
 
-      y = qSDC[m] + dtsdc[m]*fSDC[0,m] + rhs[m]
-
       self.level.state.node = m+1
       self.level.call_hooks('pre-feval', **kwargs)
 
-      feval.f2_solve(y, qSDC[m+1], t, dtsdc[m], fSDC[1,m+1], **kwargs)
-      feval.f1_evaluate(qSDC[m+1], t, fSDC[0,m+1], **kwargs)
+      if f1eval and f2eval:
+        # imex
+
+        q1 = qSDC[m] + dtsdc[m]*fSDC[0,m] + rhs[m]
+        feval.f2_solve(q1, qSDC[m+1], t, dtsdc[m], fSDC[1,m+1], **kwargs)
+        feval.f1_evaluate(qSDC[m+1], t, fSDC[0,m+1], **kwargs)
+
+      elif f1eval:
+        # explicit
+
+        qSDC[m+1] = qSDC[m] + dtsdc[m]*fSDC[0,m] + rhs[m]
+        feval.f1_evaluate(qSDC[m+1], t, fSDC[0,m+1], **kwargs)
+
+      else:
+        # implicit
+
+        q1 = qSDC[m] + dtsdc[m]*fSDC[0,m] + rhs[m]
+        feval.f2_solve(q1, qSDC[m+1], t, dtsdc[m], fSDC[0,m+1], **kwargs)
 
       self.level.call_hooks('post-feval', **kwargs)
 

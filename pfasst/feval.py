@@ -42,8 +42,7 @@ class FEval(object):
   number of pieces should be stored in the instance variable
   *pieces* (each piece has shape *shape* and size *size*).
 
-  See also :py:class:`pfasst.explicit.ExplicitFEval` and
-  :py:class:`pfasst.imex.IMEXFEval`.
+  See also :py:class:`pfasst.imex.IMEXFEval`.
 
   Attributes:
 
@@ -72,11 +71,10 @@ class FEval(object):
 
   """
 
+  def evaluate(self, q, t, f, **kwargs):
+    """Evaluate function values *f(q, t)*.
 
-  def evaluate(self, y, t, f, **kwargs):
-    """Evaluate function values *f(y, t)*.
-
-    :param y: y (numpy array)
+    :param q: q (numpy array)
     :param t: time (float)
     :param f: result (numpy array)
 
