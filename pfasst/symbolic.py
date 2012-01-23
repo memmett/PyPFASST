@@ -26,6 +26,8 @@ class Level(object):
     self.level = len(PFASST.levels)
     self.nnodes = nnodes
 
+    self.U = [ Symbol('U(%d,%d)' % (self.level, x)) for x in range(nnodes) ]
+
     if R is None:
       self.R = sympy.Function('R' + str(self.level))
     else:
@@ -57,10 +59,24 @@ class Level(object):
 
 def apply_operator(op, obj):
 
+  if isinstance(obj, Level):
+    obj = obj.U
+
   if isinstance(op, MatrixSymbol):
     return op * obj
   elif isinstance(op, Matrix):
     return op * obj
+
+  return op(obj)
+
+
+def apply_time_space_operator(op, obj):
+
+  if isinstance(obj, Level):
+    obj = obj.U
+
+  if isinstance(obj, list):
+    return [ apply_operator(op, x) for x in obj ]
 
   return op(obj)
 
@@ -71,7 +87,7 @@ def R(obj):
   level = PFASST.levels[PFASST.level]
   PFASST.level += 1
 
-  return apply_operator(level.R, obj)
+  return apply_time_space_operator(level.R, obj)[::2]
 
 
 def T(obj):

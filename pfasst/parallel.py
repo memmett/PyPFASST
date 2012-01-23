@@ -239,6 +239,7 @@ class ParallelRunner(Runner):
     # interpolate coarest to finest and set initial conditions
 
     for F, G in self.coarse_to_fine:
+      # XXX: call pre/post interpolate hooks here
       interpolate_time_space(F.qSDC, G.qSDC, F, G, **kwargs)
       eval_at_sdc_nodes(t0, dt, F.qSDC, F.fSDC, F, **kwargs)
 
