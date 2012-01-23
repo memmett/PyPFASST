@@ -49,21 +49,25 @@ def restrict_time_space(qSDCF, qSDCG, F, G, **kwargs):
     F.restrict(qSDCF[mf], qSDCG[m], fevalF=F.feval, fevalG=G.feval, **kwargs)
 
 
-def restrict_space_sum_time(qSDCF, qSDCG, F, G, **kwargs):
-  """Restrict *qSDCF* in space and sum fine nodes (excluding the
-  first) in between the coarse nodes in time."""
+def restrict_space_sum_time(tauF, tauG, F, G, **kwargs):
+  """Restrict *tauF* in space and sum fine nodes in between the coarse
+  nodes in time."""
 
-  nnodesF = qSDCF.shape[0]
-  nnodesG = qSDCG.shape[0]
+  tauG[...] = 0.0
+
+  if tauF is None:
+    return
+
+  nnodesF = tauF.shape[0] + 1
+  nnodesG = tauG.shape[0] + 1
 
   tratio = (nnodesF - 1) / (nnodesG - 1)
 
-  tmp = np.zeros(G.feval.shape, dtype=qSDCF.dtype)
+  tmp = np.zeros(G.feval.shape, dtype=tauF.dtype)
 
-  qSDCG[1:] = 0.0
   for m in range(1, nnodesF):
     mc = int(math.ceil(1.0*m/tratio))
 
-    F.restrict(qSDCF[m], tmp, fevalF=F.feval, fevalG=G.feval, **kwargs)
+    F.restrict(tauF[m-1], tmp, fevalF=F.feval, fevalG=G.feval, **kwargs)
 
-    qSDCG[mc] += tmp
+    tauG[mc-1] += tmp

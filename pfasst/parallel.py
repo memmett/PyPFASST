@@ -74,12 +74,15 @@ class ParallelRunner(Runner):
       nnodes = levels[l].sdc.nnodes
 
       levels[l].q0    = np.zeros(shape, dtype=dtype)
-      levels[l].qend  = np.zeros(shape, dtype=dtype)
       levels[l].qsend = np.zeros(shape, dtype=dtype) # send buffer
       levels[l].qrecv = np.zeros(shape, dtype=dtype) # recv buffer
-      levels[l].bSDC  = np.zeros((nnodes,)+shape, dtype=dtype)
       levels[l].qSDC  = np.zeros((nnodes,)+shape, dtype=dtype)
       levels[l].fSDC  = np.zeros((pieces,nnodes,)+shape, dtype=dtype)
+
+      levels[l].qend  = levels[l].qSDC[-1]
+
+      if l > 0:
+        levels[l].tau = np.zeros((nnodes-1,)+shape, dtype=dtype)
 
       if levels[l].forcing:
         levels[l].gSDC = np.zeros((nnodes,)+shape, dtype=dtype)
@@ -186,11 +189,11 @@ class ParallelRunner(Runner):
     # restrict finest level to coarser levels
     for F, G in self.fine_to_coarse:
       restrict_time_space(F.qSDC, G.qSDC, F, G, **kwargs)
-      restrict_space_sum_time(F.bSDC, G.bSDC, F, G, **kwargs)
+      restrict_space_sum_time(F.tau, G.tau, F, G, **kwargs)
 
       eval_at_sdc_nodes(t0, dt, G.qSDC, G.fSDC, G, **kwargs)
 
-      G.bSDC[1:] += fas(dt, F.fSDC, G.fSDC, F, G, **kwargs)
+      G.tau += fas(dt, F.fSDC, G.fSDC, F, G, **kwargs)
 
 
 
@@ -221,10 +224,9 @@ class ParallelRunner(Runner):
       # coarse sdc sweep
       B.call_hooks('pre-predictor-sweep', **kwargs)
 
-      B.bSDC[0] = B.q0
       for s in range(B.sweeps):
-        B.sdc.sweep(B.bSDC, t0, dt, B.qSDC, B.fSDC, B.feval, gSDC=B.gSDC, **kwargs)
-      B.qend[...] = B.qSDC[-1]
+        B.sdc.sweep(B.q0, t0, dt, B.qSDC, B.fSDC, B.feval,
+                    tau=B.tau, gSDC=B.gSDC, **kwargs)
 
       B.call_hooks('post-predictor-sweep', **kwargs)
 
@@ -300,10 +302,9 @@ class ParallelRunner(Runner):
 
         F.call_hooks('pre-sweep', **kwargs)
 
-        F.bSDC[0] = F.q0
         for s in range(F.sweeps):
-          F.sdc.sweep(F.bSDC, t0, dt, F.qSDC, F.fSDC, F.feval, gSDC=F.gSDC, **kwargs)
-        F.qend[...] = F.qSDC[-1]
+          F.sdc.sweep(F.q0, t0, dt, F.qSDC, F.fSDC, F.feval,
+                      tau=F.tau, gSDC=F.gSDC, **kwargs)
 
         F.call_hooks('post-sweep', **kwargs)
 
@@ -318,10 +319,10 @@ class ParallelRunner(Runner):
           G.call_hooks('pre-restrict', **kwargs)
 
           restrict_time_space(F.qSDC, G.qSDC, F, G, **kwargs)
-          restrict_space_sum_time(F.bSDC, G.bSDC, F, G, **kwargs)
+          restrict_space_sum_time(F.tau, G.tau, F, G, **kwargs)
           eval_at_sdc_nodes(t0, dt, G.qSDC, G.fSDC, G, **kwargs)
 
-          G.bSDC[1:,:] += fas(dt, F.fSDC, G.fSDC, F, G, **kwargs)
+          G.tau += fas(dt, F.fSDC, G.fSDC, F, G, **kwargs)
 
           G.call_hooks('post-restrict', **kwargs)
 
@@ -355,10 +356,9 @@ class ParallelRunner(Runner):
         if not finest:
           F.call_hooks('pre-sweep', **kwargs)
 
-          F.bSDC[0] = F.q0
           for s in range(F.sweeps):
-            F.sdc.sweep(F.bSDC, t0, dt, F.qSDC, F.fSDC, F.feval, gSDC=F.gSDC, **kwargs)
-          F.qend[...] = F.qSDC[-1]
+            F.sdc.sweep(F.q0, t0, dt, F.qSDC, F.fSDC, F.feval,
+                        tau=F.tau, gSDC=F.gSDC, **kwargs)
 
           F.call_hooks('post-sweep', **kwargs)
 

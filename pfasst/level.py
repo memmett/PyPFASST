@@ -74,8 +74,8 @@ class Level(object):
 
     self.q0 = None              # initial condition
     self.qend = None            # end value
-    self.bSDC = None            # right hand side for SDC sweeps
-    self.qSDC = None            # unknown
+    self.tau  = None            # FAS correction for SDC sweeps
+    self.qSDC = None            # unknowns
     self.fSDC = None            # function evaluations
     self.gSDC = None            # forcing evaluations
 

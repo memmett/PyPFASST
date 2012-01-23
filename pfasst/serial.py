@@ -52,10 +52,10 @@ class SerialRunner(Runner):
       nnodes = levels[l].sdc.nnodes
 
       levels[l].q0   = np.zeros(shape, dtype=dtype)
-      levels[l].qend = np.zeros(shape, dtype=dtype)
       levels[l].qSDC = np.zeros((nnodes,)+shape, dtype=dtype)
-      levels[l].bSDC = np.zeros((nnodes,)+shape, dtype=dtype)
       levels[l].fSDC = np.zeros((pieces,nnodes,)+shape, dtype=dtype)
+
+      levels[l].qend = levels[l].qSDC[-1]
 
       if levels[l].forcing:
         levels[l].gSDC = np.zeros((nnodes,)+shape, dtype=dtype)
@@ -121,10 +121,9 @@ class SerialRunner(Runner):
 
         F.call_hooks('pre-sweep', **kwargs)
 
-        F.bSDC[0] = F.q0
         for s in range(F.sweeps):
-          F.sdc.sweep(F.bSDC, t0, dt, F.qSDC, F.fSDC, F.feval, gSDC=F.gSDC, **kwargs)
-        F.qend[...] = F.qSDC[-1]
+          F.sdc.sweep(F.q0, t0, dt, F.qSDC, F.fSDC, F.feval,
+                      gSDC=F.gSDC, **kwargs)
 
         F.call_hooks('post-sweep', **kwargs)
 
