@@ -63,7 +63,7 @@ class SerialRunner(Runner):
 
   #############################################################################
 
-  def run(self, u0, dt, tend, iterations, **kwargs):
+  def run(self, q0=None, dt=None, tend=None, iterations=None, **kwargs):
     """Run in serial (SDC)."""
 
     #### short cuts, state, options
@@ -78,11 +78,11 @@ class SerialRunner(Runner):
 
     #### set initial condition
 
-    if u0 is None:
+    if q0 is None:
       raise ValueError, 'missing initial condition'
 
     try:
-      F.q0[...] = u0
+      F.q0[...] = q0
     except ValueError:
       raise ValueError, 'initial condition shape mismatch'
 

@@ -55,6 +55,16 @@ def eval_at_sdc_nodes(t0, dt, qSDC, fSDC, F, **kwargs):
     fSDC[0] += F.gSDC
 
 
+def identity_interpolator(yF, yG, **kwargs):
+  """Identity interpolator (simply copies)."""
+  yF[...] = yG[...]
+
+
+def identity_restrictor(yF, yG, **kwargs):
+  """Identity interpolator (simply copies)."""
+  yG[...] = yF[...]
+
+
 ###############################################################################
 
 class ParallelRunner(Runner):
@@ -98,6 +108,7 @@ class ParallelRunner(Runner):
 
   #############################################################################
 
+
   def sanity_checks(self):
 
     # check that sdc nodes between levels overlap
@@ -119,12 +130,10 @@ class ParallelRunner(Runner):
     # set "identity" interpolator and restrictor if necessary
     for F, G in self.fine_to_coarse:
       if F.interpolate is None:
-        import interpolators
-        F.interpolate = interpolators.identity
+        F.interpolate = identity_inerpolator
 
       if F.restrict is None:
-        import restrictors
-        F.restrict = restrictors.identity
+        F.restrict = identity_restrictor
 
 
   #############################################################################
@@ -370,10 +379,10 @@ class ParallelRunner(Runner):
 
   #############################################################################
 
-  def run(self, u0, dt, tend, iterations, cycle='V', **kwargs):
+  def run(self, q0=None, dt=None, tend=None, iterations=None, cycle='V', **kwargs):
     """Run in parallel (PFASST)."""
 
-    if u0 is None:
+    if q0 is None:
       raise ValueError, 'missing initial condition'
 
     #### short cuts, state, options
@@ -393,9 +402,7 @@ class ParallelRunner(Runner):
     iterations = optdb.iterations or iterations
     cycles = self.cycles(optdb.cycle or cycle)
 
-
     #### build time interpolation matrices
-
     for l in range(nlevels-1):
       nodesF = levels[l].sdc.nodes
       nodesG = levels[l+1].sdc.nodes
@@ -415,7 +422,7 @@ class ParallelRunner(Runner):
       self.state.block  = block
       self.state.step   = step
 
-      self.set_initial_conditions(u0, t0, dt, **kwargs)
+      self.set_initial_conditions(q0, t0, dt, **kwargs)
       self.predictor(t0, dt, **kwargs)
 
       # iterations
@@ -429,7 +436,7 @@ class ParallelRunner(Runner):
           raise ValueError, 'looping not implemented for nspace > 1'
 
         self.mpi.comm.Bcast(T.qend, root=self.mpi.ntime-1)
-        u0 = T.qend
+        q0 = T.qend
 
       for F in levels:
         F.call_hooks('end-step', **kwargs)
