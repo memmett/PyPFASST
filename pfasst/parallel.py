@@ -130,7 +130,7 @@ class ParallelRunner(Runner):
     # set "identity" interpolator and restrictor if necessary
     for F, G in self.fine_to_coarse:
       if F.interpolate is None:
-        F.interpolate = identity_inerpolator
+        F.interpolate = identity_interpolator
 
       if F.restrict is None:
         F.restrict = identity_restrictor
