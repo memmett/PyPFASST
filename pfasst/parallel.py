@@ -84,12 +84,11 @@ class ParallelRunner(Runner):
       nnodes = levels[l].sdc.nnodes
 
       levels[l].q0    = np.zeros(shape, dtype=dtype)
+      levels[l].qend  = np.zeros(shape, dtype=dtype)
       levels[l].qsend = np.zeros(shape, dtype=dtype) # send buffer
       levels[l].qrecv = np.zeros(shape, dtype=dtype) # recv buffer
       levels[l].qSDC  = np.zeros((nnodes,)+shape, dtype=dtype)
       levels[l].fSDC  = np.zeros((pieces,nnodes,)+shape, dtype=dtype)
-
-      levels[l].qend  = levels[l].qSDC[-1]
 
       if l > 0:
         levels[l].tau = np.zeros((nnodes-1,)+shape, dtype=dtype)
@@ -236,6 +235,8 @@ class ParallelRunner(Runner):
       for s in range(B.sweeps):
         B.sdc.sweep(B.q0, t0, dt, B.qSDC, B.fSDC, B.feval,
                     tau=B.tau, gSDC=B.gSDC, **kwargs)
+      B.qend[...] = B.qSDC[-1]
+
 
       B.call_hooks('post-predictor-sweep', **kwargs)
 
@@ -314,6 +315,7 @@ class ParallelRunner(Runner):
         for s in range(F.sweeps):
           F.sdc.sweep(F.q0, t0, dt, F.qSDC, F.fSDC, F.feval,
                       tau=F.tau, gSDC=F.gSDC, **kwargs)
+        F.qend[...] = F.qSDC[-1]
 
         F.call_hooks('post-sweep', **kwargs)
 
@@ -368,6 +370,7 @@ class ParallelRunner(Runner):
           for s in range(F.sweeps):
             F.sdc.sweep(F.q0, t0, dt, F.qSDC, F.fSDC, F.feval,
                         tau=F.tau, gSDC=F.gSDC, **kwargs)
+          F.qend[...] = F.qSDC[-1]
 
           F.call_hooks('post-sweep', **kwargs)
 
