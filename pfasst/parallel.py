@@ -105,6 +105,7 @@ class ParallelRunner(Runner):
       self.coarse_to_fine.append((levels[l-1], levels[l]))
 
 
+
   #############################################################################
 
 
@@ -164,14 +165,14 @@ class ParallelRunner(Runner):
 
   #############################################################################
 
-  def set_initial_conditions(self, u0, t0, dt, **kwargs):
+  def set_initial_conditions(self, q0, t0, dt, **kwargs):
     """Set initial conditions."""
 
     levels = self.levels
     T = levels[0]
 
     try:
-      levels[0].q0[...] = u0
+      T.q0[...] = q0
     except ValueError:
       raise ValueError, 'initial condition shape mismatch'
 
@@ -203,6 +204,8 @@ class ParallelRunner(Runner):
 
       G.tau += fas(dt, F.fSDC, G.fSDC, F, G, **kwargs)
 
+    for F in self.levels:
+      F.q0[...] = F.qSDC[0]
 
 
   #############################################################################
@@ -213,8 +216,6 @@ class ParallelRunner(Runner):
     B = self.levels[-1]
     rank  = self.mpi.rank
     ntime = self.mpi.ntime
-
-    B.q0[...]  = B.qSDC[0]
 
     self.state.cycle = -1
     self.state.iteration = -1
@@ -227,7 +228,7 @@ class ParallelRunner(Runner):
 
       # get new initial value (skip on first iteration)
       if k > 1 and rank > 0:
-        B.receive(k-1, blocking=True)
+        B.receive(k-1, blocking=True, **kwargs)
 
       # coarse sdc sweep
       B.call_hooks('pre-predictor-sweep', **kwargs)
@@ -236,7 +237,6 @@ class ParallelRunner(Runner):
         B.sdc.sweep(B.q0, t0, dt, B.qSDC, B.fSDC, B.feval,
                     tau=B.tau, gSDC=B.gSDC, **kwargs)
       B.qend[...] = B.qSDC[-1]
-
 
       B.call_hooks('post-predictor-sweep', **kwargs)
 
@@ -249,14 +249,14 @@ class ParallelRunner(Runner):
     self.state.predictor = False
 
     # interpolate coarest to finest and set initial conditions
-
     for F, G in self.coarse_to_fine:
-      # XXX: call pre/post interpolate hooks here
       interpolate_time_space(F.qSDC, G.qSDC, F, G, **kwargs)
       eval_at_sdc_nodes(t0, dt, F.qSDC, F.fSDC, F, **kwargs)
 
     for F in self.levels:
       F.q0[...] = F.qSDC[0]
+
+    # XXX: sweep in middle levels?
 
     for F in self.levels:
       F.call_hooks('end-predictor', **kwargs)
@@ -306,7 +306,7 @@ class ParallelRunner(Runner):
 
         if coarsest:
           if rank > 0:
-            F.receive((F.level+1)*100+k, blocking=coarsest)
+            F.receive((F.level+1)*100+k, blocking=coarsest, **kwargs)
 
         # sdc sweep
 
@@ -359,12 +359,13 @@ class ParallelRunner(Runner):
         # get new initial value
 
         if rank > 0:
-          F.receive((F.level+1)*100+k)
+          F.receive((F.level+1)*100+k, **kwargs)
           interpolate(F.q0, G.q0, F, G, **kwargs)
 
         # sdc sweep
 
         if not finest:
+
           F.call_hooks('pre-sweep', **kwargs)
 
           for s in range(F.sweeps):
