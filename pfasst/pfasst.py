@@ -228,7 +228,7 @@ class PFASST(object):
 
   #############################################################################
 
-  def add_hook(self, level, location, hook):
+  def add_hook(self, level, location, hook, position=-1):
     """Add a hook to be called for, eg, diagnostics or output.
 
     :param level: PFASST level (integer)
@@ -279,7 +279,10 @@ class PFASST(object):
     if location not in self.levels[level].hooks:
       self.levels[level].hooks[location] = []
 
-    self.levels[level].hooks[location].append(hook)
+    if position == -1:
+      position = len(self.levels[level].hooks[location])
+
+    self.levels[level].hooks[location].insert(position, hook)
 
 
   #############################################################################
@@ -344,3 +347,5 @@ class PFASST(object):
     self.state.reset()
     T.call_hooks('post-run')
     T.call_hooks('post-total')
+
+    T.call_hooks('final')
