@@ -87,6 +87,8 @@ class Level(object):
     self.send_request = None    # MPI send request
     self.recv_request = None    # MPI receive request
 
+    self.state = None           # PFASST state object
+
 
   #############################################################################
 
@@ -135,7 +137,7 @@ class Level(object):
       self.qrecv, source=self.mpi.backward, tag=tag)
 
 
-  def receive(self, tag, blocking=False, ignore=False):
+  def receive(self, tag, blocking=False, ignore=False, echo_recv=False, **kwargs):
     """Receive q0 from the previous time processor."""
 
     rank = self.mpi.rank
@@ -148,6 +150,11 @@ class Level(object):
 
     else:
       assert(tag == self.recv_tag)
+
+      if echo_recv:
+        status = self.recv_request.Test()
+        print status
+
       self.recv_request.Wait()
 
     if not ignore:
