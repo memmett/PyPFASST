@@ -49,7 +49,7 @@ def eval_at_sdc_nodes(t0, dt, qSDC, fSDC, F, **kwargs):
   for m in range(len(F.sdc.nodes)):
     t = t0 + dt*F.sdc.nodes[m]
 
-    F.feval.evaluate(qSDC[m], t, fSDC[:,m], **kwargs)
+    F.feval.evaluate(qSDC, t, fSDC, m, **kwargs)
 
   if F.forcing:
     fSDC[0] += F.gSDC
@@ -180,10 +180,12 @@ class ParallelRunner(Runner):
     T.qSDC[0] = T.q0
 
     # evaluate at first node and spread
-    T.feval.evaluate(T.qSDC[0], t0, T.fSDC[:,0])
+    T.feval.evaluate(T.qSDC, t0, T.fSDC, 0)
     for n in range(1, T.sdc.nnodes):
       T.qSDC[n]   = T.qSDC[0]
-      T.fSDC[:,n] = T.fSDC[:,0]
+      for p in range(T.fSDC.shape[0]):
+        T.fSDC[p,n] = T.fSDC[p,0]
+
 
     # evaluate forcing terms
     for F in self.levels:

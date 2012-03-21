@@ -65,7 +65,7 @@ def interpolate_correction_time_space(qSDCF, qSDCG, F, G, **kwargs):
   tratio = (nnodesF - 1) / (nnodesG - 1)
 
   if ((sizeF == sizeG) and (nnodesF == nnodesG)):
-    qSDCF[:,:] = qSDCG
+    qSDCF[...] = qSDCG
     return
 
   # compute coarse increments
@@ -73,7 +73,7 @@ def interpolate_correction_time_space(qSDCF, qSDCG, F, G, **kwargs):
 
   for m in range(nnodesG):
     mf = m*tratio
-    F.restrict(qSDCF[mf,:], qSDCFr[m,:],
+    F.restrict(qSDCF[mf], qSDCFr[m],
                fevalF=F.feval, fevalG=G.feval, **kwargs)
 
   delG = qSDCG - qSDCFr
@@ -84,7 +84,7 @@ def interpolate_correction_time_space(qSDCF, qSDCG, F, G, **kwargs):
 
   for m in range(nnodesG):
     mf = m*tratio
-    F.interpolate(delGF[mf,:], delG[m,:],
+    F.interpolate(delGF[mf], delG[m],
                   fevalF=F.feval, fevalG=G.feval, **kwargs)
 
   # interpolate inbetween nodes

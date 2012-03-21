@@ -53,10 +53,14 @@ def fas(dt, fSDCF, fSDCG, F, G, **kwargs):
   fGf = fG.reshape((G.sdc.nnodes,sizeG))
 
   for m in range(F.sdc.nnodes):
-    np.sum(fSDCF[:,m], axis=0, out=fF[m])
+    fF[m] = fSDCF[0,m]
+    for p in range(1, fSDCF.shape[0]):
+      fF[m] += fSDCF[p,m]
 
   for m in range(G.sdc.nnodes):
-    np.sum(fSDCG[:,m], axis=0, out=fG[m])
+    fG[m] = fSDCG[0,m]
+    for p in range(1, fSDCG.shape[0]):
+      fG[m] += fSDCG[p,m]
 
   # fine integral of fine function
   FofFf = dt * np.dot(F.sdc.smat, fFf)
@@ -78,7 +82,7 @@ def fas(dt, fSDCF, fSDCG, F, G, **kwargs):
 
     F.restrict(FofF[m], tmp, fevalF=F.feval, fevalG=G.feval, **kwargs)
 
-    CofF[mc] = CofF[mc] + tmp
+    CofF[mc] += tmp
 
   return CofF - CofC
 

@@ -106,7 +106,7 @@ class IMEXFEval(feval.FEval):
       raise ValueError('feval is inconsistent')
 
 
-  def evaluate(self, q, t, f, **kwargs):
+  def evaluate(self, qSDC, t, fSDC, m, **kwargs):
     """Evaluate function values *f(q, t)*.
 
     :param q: q (numpy array)
@@ -120,12 +120,12 @@ class IMEXFEval(feval.FEval):
     f2eval = hasattr(self, 'f2_evaluate')
 
     if f1eval and f2eval:
-      self.f1_evaluate(q, t, f[0], **kwargs)
-      self.f2_evaluate(q, t, f[1], **kwargs)
+      self.f1_evaluate(qSDC[m], t, fSDC[0,m], **kwargs)
+      self.f2_evaluate(qSDC[m], t, fSDC[1,m], **kwargs)
     elif f1eval:
-      self.f1_evaluate(q, t, f[0], **kwargs)
+      self.f1_evaluate(qSDC[m], t, fSDC[0,m], **kwargs)
     else:
-      self.f2_evaluate(q, t, f[0], **kwargs)
+      self.f2_evaluate(qSDC[m], t, fSDC[0,m], **kwargs)
 
 
 class IMEXSDC(sdc.SDC):

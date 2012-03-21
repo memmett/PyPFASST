@@ -72,7 +72,9 @@ class SDC(object):
     ff = f.reshape((self.nnodes,feval.size))
 
     for m in range(self.nnodes):
-      np.sum(fSDC[:,m], axis=0, out=f[m])
+      f[m] = fSDC[0,m]
+      for p in range(1, fSDC.shape[0]):
+        f[m] += fSDC[p,m]
 
     int_ff = dt * np.dot(self.smat, ff)
     int_f  = int_ff.reshape((self.nnodes-1,)+feval.shape)

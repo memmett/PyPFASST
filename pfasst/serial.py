@@ -102,10 +102,11 @@ class SerialRunner(Runner):
       F.qSDC[0] = F.q0
 
       # evaluate at first node and spread
-      F.feval.evaluate(F.qSDC[0], t0, F.fSDC[:,0])
+      F.feval.evaluate(F.qSDC, t0, F.fSDC, 0)
       for n in range(1, F.sdc.nnodes):
         F.qSDC[n]   = F.qSDC[0]
-        F.fSDC[:,n] = F.fSDC[:,0]
+        for p in range(F.fSDC.shape[0]):
+          F.fSDC[p,n] = F.fSDC[p,0]
 
       if F.forcing:
         for m in range(len(F.sdc.nodes)):
