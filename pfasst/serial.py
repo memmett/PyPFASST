@@ -98,6 +98,8 @@ class SerialRunner(Runner):
       self.state.block  = block
       self.state.step   = block
 
+      F.call_hooks('pre-iteration', **kwargs)
+
       # set initial condtion
       F.qSDC[0] = F.q0
 
@@ -129,6 +131,8 @@ class SerialRunner(Runner):
         F.call_hooks('post-sweep', **kwargs)
 
         # XXX: check residual and break if appropriate
+
+      F.call_hooks('post-iteration', **kwargs)
 
       F.call_hooks('end-step', **kwargs)
 

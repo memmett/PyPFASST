@@ -47,3 +47,9 @@ class State(object):
     self.iteration = -1
     self.predictor = False
 
+
+  def __repr__(self):
+
+    return 'blk: %d, stp: %d, cyc: %d, nde: %d, itr: %d' % (
+      self.block, self.step, self.cycle, self.node, self.iteration)
+
