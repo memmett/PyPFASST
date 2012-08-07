@@ -35,8 +35,6 @@ import numpy.fft as fft
 
 import pfasst.imex
 
-from pfpack.interpolators import spectral_periodic_masks
-
 
 ###############################################################################
 # define AD level
@@ -273,3 +271,54 @@ def restrict(yF, yG, fevalF=None, fevalG=None,
   elif dim == 3:
     y = np.reshape(yF, fevalF.shape)
     yG[...] = y[::xrat,::xrat,::xrat]
+
+
+###############################################################################
+# helpers
+
+from itertools import product
+
+def spectral_periodic_masks(dim, N, **kwargs):
+  """Spectral interpolation masks."""
+
+  if dim == 1:
+    mask_half = np.zeros(N, dtype=np.bool)
+    mask_full = np.zeros(N, dtype=np.bool)
+
+    full = range(N)
+    full.remove(N/2)
+    mask_full[full] = True
+
+    half = range(N/4) + range(3*N/4+1, N)
+    mask_half[half] = True
+
+  elif dim == 2:
+    mask_half = np.zeros((N, N), dtype=np.bool)
+    mask_full = np.zeros((N, N), dtype=np.bool)
+
+    full = range(N)
+    full.remove(N/2)
+    for i in product(full, full):
+      mask_full[i] = True
+
+    half = range(N/4) + range(3*N/4+1, N)
+    for i in product(half, half):
+      mask_half[i] = True
+
+  elif dim == 3:
+    mask_half = np.zeros((N, N, N), dtype=np.bool)
+    mask_full = np.zeros((N, N, N), dtype=np.bool)
+
+    full = range(N)
+    full.remove(N/2)
+    for i in product(full, full, full):
+      mask_full[i] = True
+
+    half = range(N/4) + range(3*N/4+1, N)
+    for i in product(half, half, half):
+      mask_half[i] = True
+
+  else:
+    raise ValueError('dimension must be 1, 2, or 3')
+
+  return mask_full, mask_half

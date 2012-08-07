@@ -180,7 +180,7 @@ class ParallelRunner(Runner):
     T.qSDC[0] = T.q0
 
     # evaluate at first node and spread
-    T.feval.evaluate(T.qSDC, t0, T.fSDC, 0)
+    T.feval.evaluate(T.qSDC, t0, T.fSDC, 0, **kwargs)
     for n in range(1, T.sdc.nnodes):
       T.qSDC[n]   = T.qSDC[0]
       for p in range(T.fSDC.shape[0]):
