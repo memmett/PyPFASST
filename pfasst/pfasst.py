@@ -214,6 +214,8 @@ class PFASST(object):
     level.sweeps      = 1
     level.pf          = self
 
+    level.pf          = self
+
 
     if getattr(feval, 'forcing', None) is not None:
       level.forcing = True
