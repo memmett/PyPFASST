@@ -118,20 +118,13 @@ class SerialRunner(Runner):
       for k in range(iterations):
         self.state.iteration = k
 
-        F.call_hooks('pre-sweep', **kwargs)
-
         for s in range(F.sweeps):
-          F.sdc.sweep(F.q0, t0, dt, F.qSDC, F.fSDC, F.feval,
-                      gSDC=F.gSDC, **kwargs)
-        F.qend[...] = F.qSDC[-1]
-
-        F.call_hooks('post-sweep', **kwargs)
+          F.sdc.sweep(t0, dt, F, **kwargs)
 
         # XXX: check residual and break if appropriate
 
       F.call_hooks('post-iteration', **kwargs)
-
-      F.call_hooks('end-step', **kwargs)
+      F.call_hooks('end-step',       **kwargs)
 
       # set next initial condition
       F.q0[...] = F.qend[...]

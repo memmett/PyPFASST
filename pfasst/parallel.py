@@ -71,8 +71,8 @@ class ParallelRunner(Runner):
 
       levels[l].q0    = np.zeros(shape, dtype=dtype)
       levels[l].qend  = np.zeros(shape, dtype=dtype)
-      levels[l].qsend = np.zeros(shape, dtype=dtype) # send buffer
-      levels[l].qrecv = np.zeros(shape, dtype=dtype) # recv buffer
+      levels[l].qsend = np.zeros(shape, dtype=dtype)
+      levels[l].qrecv = np.zeros(shape, dtype=dtype)
       levels[l].qSDC  = np.zeros((nnodes,)+shape, dtype=dtype)
       levels[l].fSDC  = np.zeros((pieces,nnodes,)+shape, dtype=dtype)
 
@@ -118,33 +118,6 @@ class ParallelRunner(Runner):
 
       if F.restrict is None:
         F.restrict = identity_restrictor
-
-
-  #############################################################################
-
-  # def cycles(self, cycle):
-  #   """Build cycles."""
-
-  #   nlevels = len(self.levels)
-
-  #   cycles = []
-
-  #   if cycle == 'V':
-  #     down = []
-  #     up   = []
-
-  #     for l in range(nlevels):
-  #       down.append(l)
-
-  #     for l in range(nlevels-2, -1, -1):
-  #       up.append(l)
-
-  #     cycles.append((down, up))
-
-  #   else:
-  #     raise ValueError("cycle '%s' not understood" % cycle)
-
-  #   return cycles
 
 
   #############################################################################
@@ -199,7 +172,7 @@ class ParallelRunner(Runner):
   def predictor(self, t0, dt, **kwargs):
     """Perform the PFASST predictor."""
 
-    B = self.levels[-1]
+    B     = self.levels[-1]
     rank  = self.mpi.rank
     ntime = self.mpi.ntime
 
@@ -211,17 +184,13 @@ class ParallelRunner(Runner):
     for k in range(1, rank+2):
       self.state.iteration = k
 
-      # get new initial value (skip on first iteration)
-      if k > 1 and rank > 0:
-        B.receive(k-1, blocking=True, **kwargs)
+      if k > 1:
+        B.receive(k-1, blocking=True)
 
-      # coarse sdc sweep
       for s in range(B.sweeps):
         B.sdc.sweep(t0, dt, B, **kwargs)
 
-      # send result forward
-      if rank < ntime-1:
-        B.send(k, blocking=True)
+      B.send(k, blocking=True)
 
     self.state.iteration = -1
     B.call_hooks('post-predictor', **kwargs)
@@ -229,22 +198,20 @@ class ParallelRunner(Runner):
 
     # interpolate coarest to finest and set initial conditions
     for F, G in self.coarse_to_fine:
+      # XXX: sweep in middle levels?
       interpolate_time_space(F.qSDC, G.qSDC, F, G, **kwargs)
       F.sdc.evaluate(t0, F.qSDC, F.fSDC, 'all', F.feval, **kwargs)
 
     for F in self.levels:
       F.q0[...] = F.qSDC[0]
 
-    # XXX: sweep in middle levels?
-
     for F in self.levels:
       F.call_hooks('end-predictor', **kwargs)
 
 
-
   #############################################################################
 
-  def iteration(self, k, t0, dt, **kwargs):
+  def iteration(self, t0, dt, **kwargs):
     """Perform one PFASST iteration."""
 
     levels  = self.levels
@@ -252,6 +219,7 @@ class ParallelRunner(Runner):
 
     rank  = self.mpi.rank
     ntime = self.mpi.ntime
+    k     = self.state.iteration
 
     T = levels[0]               # finest/top level
     B = levels[nlevels-1]       # coarsest/bottom level
@@ -259,25 +227,22 @@ class ParallelRunner(Runner):
     self.state.cycle = 0
     T.call_hooks('pre-iteration', **kwargs)
 
-    #### down v cycle
 
-    # post receive requests
-    if rank > 0:
-      for l in range(nlevels-1):
-        F = levels[l]
-        F.post_receive((F.level+1)*100+k)
+    #### post receive requests
 
-    for l in range(nlevels-1):
+    for F in levels[:-1]:
+      F.post_receive((F.level+1)*100+k)
+
+
+    #### down
+
+    for F, G in self.fine_to_coarse:
       self.state.cycle += 1
-
-      F = levels[l]
-      G = levels[l+1]
 
       for s in range(F.sweeps):
         F.sdc.sweep(t0, dt, F, **kwargs)
 
-      if rank < ntime-1:
-        F.send((F.level+1)*100+k, blocking=False)
+      F.send((F.level+1)*100+k, blocking=False)
 
       G.call_hooks('pre-restrict', **kwargs)
 
@@ -289,23 +254,21 @@ class ParallelRunner(Runner):
 
       G.call_hooks('post-restrict', **kwargs)
 
+
     #### bottom
 
-    if rank > 0:
-      B.receive((B.level+1)*100+k, blocking=True)
+    B.receive((B.level+1)*100+k, blocking=True)
 
     for s in range(B.sweeps):
       B.sdc.sweep(t0, dt, B, **kwargs)
 
-    if rank < ntime-1:
-      B.send((B.level+1)*100+k, blocking=True)
+    B.send((B.level+1)*100+k, blocking=True)
+
 
     #### up
-    for l in range(nlevels-2, -1, -1):
-      self.state.cycle += 1
 
-      F = levels[l]
-      G = levels[l+1]
+    for F, G in self.coarse_to_fine:
+      self.state.cycle += 1
 
       # interpolate
 
@@ -318,15 +281,16 @@ class ParallelRunner(Runner):
 
       # get new initial value
 
+      F.receive((F.level+1)*100+k, **kwargs)
       if rank > 0:
-        F.receive((F.level+1)*100+k, **kwargs)
         interpolate(F.q0, G.q0, F, G, **kwargs)
 
-      # sdc sweep
+      # sweep
 
-      if l != 0:
+      if F.level != 0:
         for s in range(F.sweeps):
           F.sdc.sweep(t0, dt, F, **kwargs)
+
 
     #### done
 
@@ -346,13 +310,9 @@ class ParallelRunner(Runner):
     #### short cuts, state
 
     levels  = self.levels
-    nlevels = len(levels)
 
     rank  = self.mpi.rank
     ntime = self.mpi.ntime
-
-    T = levels[0]               # finest/top level
-    B = levels[nlevels-1]       # coarsest/bottom level
 
     self.state.dt   = dt
     self.state.tend = tend
@@ -360,11 +320,8 @@ class ParallelRunner(Runner):
 
     #### build time interpolation matrices
 
-    for l in range(nlevels-1):
-      nodesF = levels[l].sdc.nodes
-      nodesG = levels[l+1].sdc.nodes
-
-      levels[l].time_interp_mat = time_interpolation_matrix(nodesF, nodesG)
+    for F, G in self.fine_to_coarse:
+      F.time_interp_mat = time_interpolation_matrix(F.sdc.nodes, G.sdc.nodes)
 
 
     #### block loop
@@ -386,7 +343,7 @@ class ParallelRunner(Runner):
       # iterations
       for k in range(iterations):
         self.state.iteration = k
-        self.iteration(k, t0, dt, **kwargs)
+        self.iteration(t0, dt, **kwargs)
 
       # loop
       if nblocks > 1 and block < nblocks:

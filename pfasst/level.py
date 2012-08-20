@@ -106,6 +106,9 @@ class Level(object):
 
     rank = self.pf.mpi.rank
 
+    if rank == self.pf.mpi.ntime:
+      return
+
     self.call_hooks('pre-send')
 
     if blocking:
@@ -130,6 +133,9 @@ class Level(object):
 
     rank = self.pf.mpi.rank
 
+    if rank == 0:
+      return
+
     self.recv_tag = tag
     self.recv_request = self.pf.mpi.comm.Irecv(
       self.qrecv, source=self.pf.mpi.backward, tag=tag)
@@ -139,6 +145,9 @@ class Level(object):
     """Receive q0 from the previous time processor."""
 
     rank = self.pf.mpi.rank
+
+    if rank == 0:
+      return
 
     self.call_hooks('pre-receive')
 
