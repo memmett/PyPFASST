@@ -1,6 +1,6 @@
 """PyPFASST SDC class."""
 
-# Copyright (c) 2011, Matthew Emmett.  All rights reserved.
+# Copyright (c) 2011, 2012 Matthew Emmett.  All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -36,6 +36,7 @@ class SDC(object):
 
   :param qtype: quadrature type
   :param nodes: number of quadrature nodes
+  :param refine: refinement factor
 
   The SDC class performs SDC sweeps and adds FAS corrections if
   supplied.  See also :py:class:`pfasst.imex.IMEXSDC`.
@@ -43,11 +44,12 @@ class SDC(object):
   Currently supported quadrature types are:
 
   * ``'GL'``: Gauss-Labotto
+  * ``'GR'``: Gauss-Radau
   * ``'CC'``: Clenshaw-Curtis
 
-  By default, the constructor loads the quadrature nodes and
-  spectral integration matrix correcponding to *nodes* and *qtype*
-  into the instance variables *nodes* and *smat*.
+  By default, the constructor loads the quadrature nodes and spectral
+  integration matrix correcponding to *nodes* and *qtype* into the
+  instance variables *nodes* and *smat*.
 
   """
 
@@ -61,6 +63,7 @@ class SDC(object):
 
     self.nodes = np.array(nodes, dtype=dtype)
     self.smat  = np.array(smat,  dtype=dtype)
+
 
 
   #############################################################################
@@ -88,22 +91,21 @@ class SDC(object):
 
   #############################################################################
 
-  def sweep(self, b, t0, dt, qSDC, fSDC, feval, **kwargs):
-    r"""Perform one SDC sweep.
-
-    :param b:     right hand side (numpy array of size ``(nnodes, size)``)
-    :param t0:    initial time
-    :param dt:    time step
-    :param qSDC:  solution (numpy array of size ``(nnodes, size)``)
-    :param fSDC:  function (numpy array of size ``(pieces, nnodes, size)``)
-    :param feval: function evaluator (instance of
-                  :py:class:`pfasst.feval.FEval`)
+  def sweep(self, *args, **kwargs):
+    """Perform one SDC sweep.
 
     **This method should be overridden.**
-
-    See also :py:class:`pfasst.imex.IMEXSDC` and
-    :py:class:`pfasst.explicit.ExplicitSDC`.
-
     """
 
-    raise NotImplementedError('pfasst.sdc.sweep must be implemented')
+    raise NotImplementedError()
+
+
+  #############################################################################
+
+  def evaluate(self, *args, **kwargs):
+    """Evaluate.
+
+    **This method should be overridden.**
+    """
+
+    raise NotImplementedError()

@@ -150,8 +150,6 @@ class PFASST(object):
     self.state  = state.State()      # state
     self.mpi    = mpi.PFASSTMPI()    # mpi
 
-    self.state.mpi   = self.mpi
-
 
   #############################################################################
 
@@ -208,13 +206,11 @@ class PFASST(object):
     level.restrict    = restrict
 
     level.level       = len(self.levels)
-    level.mpi         = self.mpi
-    level.state       = self.state
     level.hooks       = {}
     level.sweeps      = 1
-    level.pf          = self
 
     level.pf          = self
+    level.sdc.pf      = self
 
 
     if getattr(feval, 'forcing', None) is not None:
@@ -325,7 +321,7 @@ class PFASST(object):
       runner = rk.ARKRunner(RK)
     else:
       # use the SDC integrators
-      if len(self.levels) == 1:
+      if self.mpi.ntime == 1 or len(self.levels) == 1:
         runner = serial.SerialRunner()
       else:
         runner = parallel.ParallelRunner()

@@ -1,6 +1,6 @@
 """PyPFASST ParallelRunner class."""
 
-# Copyright (c) 2011, Matthew Emmett.  All rights reserved.
+# Copyright (c) 2011, 2012 Matthew Emmett.  All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -39,19 +39,6 @@ from interpolate import time_interpolation_matrix
 from fas import fas
 
 from runner import Runner
-
-
-
-def eval_at_sdc_nodes(t0, dt, qSDC, fSDC, F, **kwargs):
-  """Evaluate implicit/explicit functions at each SDC substep."""
-
-  for m in range(len(F.sdc.nodes)):
-    t = t0 + dt*F.sdc.nodes[m]
-
-    F.feval.evaluate(qSDC, t, fSDC, m, **kwargs)
-
-  if F.forcing:
-    fSDC[0] += F.gSDC
 
 
 def identity_interpolator(yF, yG, **kwargs):
@@ -104,9 +91,7 @@ class ParallelRunner(Runner):
       self.coarse_to_fine.append((levels[l-1], levels[l]))
 
 
-
   #############################################################################
-
 
   def sanity_checks(self):
 
@@ -137,29 +122,29 @@ class ParallelRunner(Runner):
 
   #############################################################################
 
-  def cycles(self, cycle):
-    """Build cycles."""
+  # def cycles(self, cycle):
+  #   """Build cycles."""
 
-    nlevels = len(self.levels)
+  #   nlevels = len(self.levels)
 
-    cycles = []
+  #   cycles = []
 
-    if cycle == 'V':
-      down = []
-      up   = []
+  #   if cycle == 'V':
+  #     down = []
+  #     up   = []
 
-      for l in range(nlevels):
-        down.append(l)
+  #     for l in range(nlevels):
+  #       down.append(l)
 
-      for l in range(nlevels-2, -1, -1):
-        up.append(l)
+  #     for l in range(nlevels-2, -1, -1):
+  #       up.append(l)
 
-      cycles.append((down, up))
+  #     cycles.append((down, up))
 
-    else:
-      raise ValueError("cycle '%s' not understood" % cycle)
+  #   else:
+  #     raise ValueError("cycle '%s' not understood" % cycle)
 
-    return cycles
+  #   return cycles
 
 
   #############################################################################
@@ -179,7 +164,7 @@ class ParallelRunner(Runner):
     T.qSDC[0] = T.q0
 
     # evaluate at first node and spread
-    T.feval.evaluate(T.qSDC, t0, T.fSDC, 0, **kwargs)
+    T.sdc.evaluate(t0, T.qSDC, T.fSDC, 0, T.feval, **kwargs)
     for n in range(1, T.sdc.nnodes):
       T.qSDC[n]   = T.qSDC[0]
       for p in range(T.fSDC.shape[0]):
@@ -201,7 +186,7 @@ class ParallelRunner(Runner):
       restrict_time_space(F.qSDC, G.qSDC, F, G, **kwargs)
       restrict_space_sum_time(F.tau, G.tau, F, G, **kwargs)
 
-      eval_at_sdc_nodes(t0, dt, G.qSDC, G.fSDC, G, **kwargs)
+      G.sdc.evaluate(t0, G.qSDC, G.fSDC, 'all', G.feval, **kwargs)
 
       G.tau += fas(dt, F.fSDC, G.fSDC, F, G, **kwargs)
 
@@ -231,14 +216,8 @@ class ParallelRunner(Runner):
         B.receive(k-1, blocking=True, **kwargs)
 
       # coarse sdc sweep
-      B.call_hooks('pre-predictor-sweep', **kwargs)
-
       for s in range(B.sweeps):
-        B.sdc.sweep(B.q0, t0, dt, B.qSDC, B.fSDC, B.feval,
-                    tau=B.tau, gSDC=B.gSDC, **kwargs)
-      B.qend[...] = B.qSDC[-1]
-
-      B.call_hooks('post-predictor-sweep', **kwargs)
+        B.sdc.sweep(t0, dt, B, **kwargs)
 
       # send result forward
       if rank < ntime-1:
@@ -251,7 +230,7 @@ class ParallelRunner(Runner):
     # interpolate coarest to finest and set initial conditions
     for F, G in self.coarse_to_fine:
       interpolate_time_space(F.qSDC, G.qSDC, F, G, **kwargs)
-      eval_at_sdc_nodes(t0, dt, F.qSDC, F.fSDC, F, **kwargs)
+      F.sdc.evaluate(t0, F.qSDC, F.fSDC, 'all', F.feval, **kwargs)
 
     for F in self.levels:
       F.q0[...] = F.qSDC[0]
@@ -265,7 +244,7 @@ class ParallelRunner(Runner):
 
   #############################################################################
 
-  def iteration(self, k, t0, dt, cycles, **kwargs):
+  def iteration(self, k, t0, dt, **kwargs):
     """Perform one PFASST iteration."""
 
     levels  = self.levels
@@ -277,103 +256,77 @@ class ParallelRunner(Runner):
     T = levels[0]               # finest/top level
     B = levels[nlevels-1]       # coarsest/bottom level
 
-    self.state.cycle     = 0
+    self.state.cycle = 0
     T.call_hooks('pre-iteration', **kwargs)
+
+    #### down v cycle
 
     # post receive requests
     if rank > 0:
-      for iF in range(len(self.levels)-1):
-        F = self.levels[iF]
+      for l in range(nlevels-1):
+        F = levels[l]
         F.post_receive((F.level+1)*100+k)
 
-    #### cycle
+    for l in range(nlevels-1):
+      self.state.cycle += 1
 
-    for down, up in cycles:
+      F = levels[l]
+      G = levels[l+1]
 
-      #### down
+      for s in range(F.sweeps):
+        F.sdc.sweep(t0, dt, F, **kwargs)
 
-      for iF in down:
-        self.state.cycle += 1
+      if rank < ntime-1:
+        F.send((F.level+1)*100+k, blocking=False)
 
-        finest   = iF == 0
-        coarsest = iF == nlevels - 1
+      G.call_hooks('pre-restrict', **kwargs)
 
-        F = levels[iF]
-        if not coarsest:
-          G = levels[iF+1]
+      restrict_time_space(F.qSDC, G.qSDC, F, G, **kwargs)
+      restrict_space_sum_time(F.tau, G.tau, F, G, **kwargs)
+      G.sdc.evaluate(t0, G.qSDC, G.fSDC, 'all', G.feval, **kwargs)
 
-        # get new initial value on coarsest level
+      G.tau += fas(dt, F.fSDC, G.fSDC, F, G, **kwargs)
 
-        if coarsest:
-          if rank > 0:
-            F.receive((F.level+1)*100+k, blocking=coarsest, **kwargs)
+      G.call_hooks('post-restrict', **kwargs)
 
-        # sdc sweep
+    #### bottom
 
-        F.call_hooks('pre-sweep', **kwargs)
+    if rank > 0:
+      B.receive((B.level+1)*100+k, blocking=True)
 
+    for s in range(B.sweeps):
+      B.sdc.sweep(t0, dt, B, **kwargs)
+
+    if rank < ntime-1:
+      B.send((B.level+1)*100+k, blocking=True)
+
+    #### up
+    for l in range(nlevels-2, -1, -1):
+      self.state.cycle += 1
+
+      F = levels[l]
+      G = levels[l+1]
+
+      # interpolate
+
+      G.call_hooks('pre-interpolate', **kwargs)
+
+      interpolate_time_space(F.qSDC, G.qSDC, F, G, **kwargs)
+      F.sdc.evaluate(t0, F.qSDC, F.fSDC, 'all', F.feval, **kwargs)
+
+      G.call_hooks('post-interpolate', **kwargs)
+
+      # get new initial value
+
+      if rank > 0:
+        F.receive((F.level+1)*100+k, **kwargs)
+        interpolate(F.q0, G.q0, F, G, **kwargs)
+
+      # sdc sweep
+
+      if l != 0:
         for s in range(F.sweeps):
-          F.sdc.sweep(F.q0, t0, dt, F.qSDC, F.fSDC, F.feval,
-                      tau=F.tau, gSDC=F.gSDC, **kwargs)
-        F.qend[...] = F.qSDC[-1]
-
-        F.call_hooks('post-sweep', **kwargs)
-
-        # send new value forward
-
-        if rank < ntime-1:
-          F.send((F.level+1)*100+k, blocking=coarsest)
-
-        # restrict
-
-        if not coarsest:
-          G.call_hooks('pre-restrict', **kwargs)
-
-          restrict_time_space(F.qSDC, G.qSDC, F, G, **kwargs)
-          restrict_space_sum_time(F.tau, G.tau, F, G, **kwargs)
-          eval_at_sdc_nodes(t0, dt, G.qSDC, G.fSDC, G, **kwargs)
-
-          G.tau += fas(dt, F.fSDC, G.fSDC, F, G, **kwargs)
-
-          G.call_hooks('post-restrict', **kwargs)
-
-      #### up
-
-      for iF in up:
-        self.state.cycle += 1
-
-        finest = iF == 0
-
-        F = levels[iF]
-        G = levels[iF+1]
-
-        # interpolate
-
-        G.call_hooks('pre-interpolate', **kwargs)
-
-        interpolate_time_space(F.qSDC, G.qSDC, F, G, **kwargs)
-        eval_at_sdc_nodes(t0, dt, F.qSDC, F.fSDC, F, **kwargs)
-
-        G.call_hooks('post-interpolate', **kwargs)
-
-        # get new initial value
-
-        if rank > 0:
-          F.receive((F.level+1)*100+k, **kwargs)
-          interpolate(F.q0, G.q0, F, G, **kwargs)
-
-        # sdc sweep
-
-        if not finest:
-
-          F.call_hooks('pre-sweep', **kwargs)
-
-          for s in range(F.sweeps):
-            F.sdc.sweep(F.q0, t0, dt, F.qSDC, F.fSDC, F.feval,
-                        tau=F.tau, gSDC=F.gSDC, **kwargs)
-          F.qend[...] = F.qSDC[-1]
-
-          F.call_hooks('post-sweep', **kwargs)
+          F.sdc.sweep(t0, dt, F, **kwargs)
 
     #### done
 
@@ -383,13 +336,14 @@ class ParallelRunner(Runner):
 
   #############################################################################
 
-  def run(self, q0=None, dt=None, tend=None, iterations=None, cycle='V', **kwargs):
+  def run(self, q0=None, dt=None, tend=None, iterations=None, **kwargs):
     """Run in parallel (PFASST)."""
 
     if q0 is None:
       raise ValueError, 'missing initial condition'
 
-    #### short cuts, state, options
+
+    #### short cuts, state
 
     levels  = self.levels
     nlevels = len(levels)
@@ -403,9 +357,9 @@ class ParallelRunner(Runner):
     self.state.dt   = dt
     self.state.tend = tend
 
-    cycles = self.cycles(cycle)
 
     #### build time interpolation matrices
+
     for l in range(nlevels-1):
       nodesF = levels[l].sdc.nodes
       nodesG = levels[l+1].sdc.nodes
@@ -414,6 +368,7 @@ class ParallelRunner(Runner):
 
 
     #### block loop
+
     nblocks = int(math.ceil(tend/(dt*ntime)))
 
     for block in range(nblocks):
@@ -421,9 +376,9 @@ class ParallelRunner(Runner):
       step = block*ntime + rank
       t0   = dt*step
 
-      self.state.t0     = t0
-      self.state.block  = block
-      self.state.step   = step
+      self.state.t0    = t0
+      self.state.block = block
+      self.state.step  = step
 
       self.set_initial_conditions(q0, t0, dt, **kwargs)
       self.predictor(t0, dt, **kwargs)
@@ -431,7 +386,7 @@ class ParallelRunner(Runner):
       # iterations
       for k in range(iterations):
         self.state.iteration = k
-        self.iteration(k, t0, dt, cycles, **kwargs)
+        self.iteration(k, t0, dt, **kwargs)
 
       # loop
       if nblocks > 1 and block < nblocks:

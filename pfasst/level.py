@@ -72,7 +72,7 @@ class Level(object):
 
     super(Level, self).__init__()
 
-    self.q0 = None              # initial condition
+    self.q0   = None            # initial condition
     self.qend = None            # end value
     self.tau  = None            # FAS correction for SDC sweeps
     self.qSDC = None            # unknowns
@@ -87,8 +87,6 @@ class Level(object):
     self.send_request = None    # MPI send request
     self.recv_request = None    # MPI receive request
 
-    self.state = None           # PFASST state object
-
 
   #############################################################################
 
@@ -97,8 +95,8 @@ class Level(object):
 
     if key in self.hooks:
       for hook in self.hooks[key]:
-        self.state.hook = key
-        hook(self, self.state)
+        self.pf.state.hook = key
+        hook(level=self, state=self.pf.state, pf=self.pf)
 
 
   #############################################################################
@@ -106,21 +104,21 @@ class Level(object):
   def send(self, tag, blocking=False):
     """Send qend forward to the next time processor."""
 
-    rank = self.mpi.rank
+    rank = self.pf.mpi.rank
 
     self.call_hooks('pre-send')
 
     if blocking:
-      self.mpi.comm.Send(
-        self.qend, dest=self.mpi.forward, tag=tag)
+      self.pf.mpi.comm.Send(
+        self.qend, dest=self.pf.mpi.forward, tag=tag)
 
     else:
       if self.send_request:
         self.send_request.Wait()
 
       self.qsend[...] = self.qend
-      self.send_request = self.mpi.comm.Isend(
-        self.qsend, dest=self.mpi.forward, tag=tag)
+      self.send_request = self.pf.mpi.comm.Isend(
+        self.qsend, dest=self.pf.mpi.forward, tag=tag)
 
     self.call_hooks('post-send')
 
@@ -130,23 +128,23 @@ class Level(object):
   def post_receive(self, tag):
     """Post a receive request."""
 
-    rank = self.mpi.rank
+    rank = self.pf.mpi.rank
 
     self.recv_tag = tag
-    self.recv_request = self.mpi.comm.Irecv(
-      self.qrecv, source=self.mpi.backward, tag=tag)
+    self.recv_request = self.pf.mpi.comm.Irecv(
+      self.qrecv, source=self.pf.mpi.backward, tag=tag)
 
 
   def receive(self, tag, blocking=False, ignore=False, echo_recv=False, **kwargs):
     """Receive q0 from the previous time processor."""
 
-    rank = self.mpi.rank
+    rank = self.pf.mpi.rank
 
     self.call_hooks('pre-receive')
 
     if blocking:
-      self.mpi.comm.Recv(
-        self.qrecv, source=self.mpi.backward, tag=tag)
+      self.pf.mpi.comm.Recv(
+        self.qrecv, source=self.pf.mpi.backward, tag=tag)
 
     else:
       assert(tag == self.recv_tag)

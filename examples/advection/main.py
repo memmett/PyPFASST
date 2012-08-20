@@ -34,7 +34,6 @@ import argparse
 
 import pfasst
 import pfasst.imex
-#import pfasst.options
 
 from ad import *
 

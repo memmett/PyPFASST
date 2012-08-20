@@ -106,28 +106,6 @@ class IMEXFEval(feval.FEval):
       raise ValueError('feval is inconsistent')
 
 
-  def evaluate(self, qSDC, t, fSDC, m, **kwargs):
-    """Evaluate function values *f(q, t)*.
-
-    :param q: q (numpy array)
-    :param t: time (float)
-    :param f: result (numpy array)
-
-    The result is stored in *f*.
-    """
-
-    f1eval = hasattr(self, 'f1_evaluate')
-    f2eval = hasattr(self, 'f2_evaluate')
-
-    if f1eval and f2eval:
-      self.f1_evaluate(qSDC[m], t, fSDC[0,m], **kwargs)
-      self.f2_evaluate(qSDC[m], t, fSDC[1,m], **kwargs)
-    elif f1eval:
-      self.f1_evaluate(qSDC[m], t, fSDC[0,m], **kwargs)
-    else:
-      self.f2_evaluate(qSDC[m], t, fSDC[0,m], **kwargs)
-
-
 class IMEXSDC(sdc.SDC):
   r"""IMEXSDC (implicit/explicit SDC) class.
 
@@ -163,39 +141,65 @@ class IMEXSDC(sdc.SDC):
     self.dsdc = self.nodes[1:] - self.nodes[:-1]
 
 
-  def sweep(self, q0, t0, dt, qSDC, fSDC, feval, tau=None, gSDC=None, **kwargs):
-    r"""Perform one SDC sweep.
+  ###############################################################################
 
-    :param b:    right hand side (numpy array of size ``(nnodes,nqvar)``)
-    :param t0:   initial time
-    :param dt:   time step
-    :param qSDC: solution (numpy array of size ``(nnodes,nqvar)``)
-    :param fSDC: function (numpy array of size ``(nnodes,nfvar)``)
-    :param feval: implicit/explicit function evaluator (instance
-            of :py:class:`pfasst.feval.FEval`)
+  def evaluate(self, t0, qSDC, fSDC, node, feval, **kwargs):
+
+    nnodes = fSDC.shape[1]
+
+    f1eval = hasattr(feval, 'f1_evaluate')
+    f2eval = hasattr(feval, 'f2_evaluate')
+
+    if node == 'all':
+
+      for m in range(nnodes):
+
+        self.pf.state.node = m
+        self.level.call_hooks('pre-feval', **kwargs)
+
+        if f1eval and f2eval:
+          feval.f1_evaluate(qSDC[m], t0, fSDC[0, m], **kwargs)
+          feval.f2_evaluate(qSDC[m], t0, fSDC[1, m], **kwargs)
+        elif f1eval:
+          feval.f1_evaluate(qSDC[m], t0, fSDC[0, m], **kwargs)
+        else:
+          feval.f2_evaluate(qSDC[m], t0, fSDC[0, m], **kwargs)
+
+        self.level.call_hooks('post-feval', **kwargs)
+
+    else:
+
+      self.pf.state.node = node
+      self.level.call_hooks('pre-feval', **kwargs)
+
+      if f1eval and f2eval:
+        feval.f1_evaluate(qSDC[node], t0, fSDC[0, node], **kwargs)
+        feval.f2_evaluate(qSDC[node], t0, fSDC[1, node], **kwargs)
+      elif f1eval:
+        feval.f1_evaluate(qSDC[node], t0, fSDC[0, node], **kwargs)
+      else:
+        feval.f2_evaluate(qSDC[node], t0, fSDC[0, node], **kwargs)
+
+      self.level.call_hooks('post-feval', **kwargs)
+
+
+  ###############################################################################
+
+  def sweep(self, t0, dt, F, **kwargs):
+    r"""Perform one SDC sweep.
 
     Note that *qSDC* and *fSDC* are over-written.
 
-    The sweep performed uses forward/backward Euler time-stepping:
-
-    .. math::
-
-      \begin{multline}
-        q^{k+1}_{m+1} = q^{k+1}_m + \Delta t_m
-            \bigl[ f_I(t_{m+1}, q^{k+1}_{m+1}) +
-                 f_E(t_{m}, q^{k+1}_{m}) \bigr] \\
-        + S^{m,m+1}_E \, f_E(\vec{t}, \vec{q}^{k})
-        + S^{m,m+1}_I \, f_I(\vec{t}, \vec{q}^{k}) + b_{m+1}
-      \end{multline}
-
-    where :math:`m = 0 \ldots M`.  Note that the initial condition
-    :math:`q^{k+1}_0` is assumed to be stored in ``b[0]``.
-
+    The sweep performed uses forward/backward Euler time-stepping.
     """
 
     exp = self.smat_exp
     imp = self.smat_imp
 
+    qSDC = F.qSDC
+    fSDC = F.fSDC
+    feval = F.feval
+    
     pieces = fSDC.shape[0]
     nnodes = fSDC.shape[1]
     shape  = fSDC.shape[2:]
@@ -203,6 +207,8 @@ class IMEXSDC(sdc.SDC):
 
     f1eval = hasattr(feval, 'f1_evaluate')
     f2eval = hasattr(feval, 'f2_evaluate')
+
+    F.call_hooks('pre-sweep', **kwargs)
 
     # flatten so we can use np.dot
     fSDCf = fSDC.reshape((pieces, nnodes, size))
@@ -218,27 +224,15 @@ class IMEXSDC(sdc.SDC):
     rhs = rhs.reshape((nnodes-1,)+shape)
 
     # add tau
-    if tau is not None:
-      rhs += tau
+    if F.tau is not None:
+      rhs += F.tau
 
     # set initial condition and eval
-    qSDC[0] = q0
+    qSDC[0] = F.q0
+    self.evaluate(t0, qSDC, fSDC, 0, feval, **kwargs)
 
-    self.level.state.node = 0
-    self.level.call_hooks('pre-feval', **kwargs)
-
-    if f1eval and f2eval:
-      feval.f1_evaluate(qSDC[0], t0, fSDC[0,0], **kwargs)
-      feval.f2_evaluate(qSDC[0], t0, fSDC[1,0], **kwargs)
-    elif f1eval:
-      feval.f1_evaluate(qSDC[0], t0, fSDC[0,0], **kwargs)
-    else:
-      feval.f2_evaluate(qSDC[0], t0, fSDC[0,0], **kwargs)
-
-    self.level.call_hooks('post-feval', **kwargs)
-
-    if gSDC is not None:
-      fSDC[0,0] += gSDC[0]
+    if F.gSDC is not None:
+      fSDC[0,0] += F.gSDC[0]
 
     # sub time-stepping
     t = t0
@@ -247,7 +241,7 @@ class IMEXSDC(sdc.SDC):
     for m in range(self.nnodes-1):
       t += dtsdc[m]
 
-      self.level.state.node = m+1
+      self.pf.state.node = m + 1
       self.level.call_hooks('pre-feval', **kwargs)
 
       if f1eval and f2eval:
@@ -271,7 +265,12 @@ class IMEXSDC(sdc.SDC):
 
       self.level.call_hooks('post-feval', **kwargs)
 
-      if gSDC is not None:
-        fSDC[0,m+1] += gSDC[m+1]
+      if F.gSDC is not None:
+        fSDC[0,m+1] += F.gSDC[m+1]
 
-    self.level.state.node = -1
+    F.qend[...] = F.qSDC[-1]
+
+    self.pf.state.node = -1
+
+    F.call_hooks('post-sweep', **kwargs)
+

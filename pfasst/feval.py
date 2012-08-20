@@ -71,19 +71,5 @@ class FEval(object):
 
   """
 
-  def evaluate(self, q, t, f, **kwargs):
-    """Evaluate function values *f(q, t)*.
+  pass
 
-    :param q: q (numpy array)
-    :param t: time (float)
-    :param f: result (numpy array)
-
-    The result should be stored in *f*.
-
-    **This method should be overridden.**
-
-    By default, this sets *f* to 0.
-
-    """
-
-    f[...] = 0.0
