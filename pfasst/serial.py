@@ -32,8 +32,6 @@ import numpy as np
 
 from runner import Runner
 
-from options import db as optdb
-
 
 class SerialRunner(Runner):
   """Serial PFASST class/driver."""
@@ -71,8 +69,6 @@ class SerialRunner(Runner):
 
     self.state.dt   = dt
     self.state.tend = tend
-
-    iterations = optdb.iterations or iterations
 
 
     #### set initial condition

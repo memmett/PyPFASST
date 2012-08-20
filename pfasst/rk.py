@@ -32,8 +32,6 @@ import numpy as np
 
 from runner import Runner
 
-from options import db as optdb
-
 
 class ARKRunner(Runner):
   """Use the semi-implicit RK scheme of Carpenter and Kennedy instead of SDC.

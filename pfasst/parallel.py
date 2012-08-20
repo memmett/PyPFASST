@@ -40,7 +40,6 @@ from fas import fas
 
 from runner import Runner
 
-from options import db as optdb
 
 
 def eval_at_sdc_nodes(t0, dt, qSDC, fSDC, F, **kwargs):
@@ -224,8 +223,7 @@ class ParallelRunner(Runner):
     self.state.predictor = True
     B.call_hooks('pre-predictor', **kwargs)
 
-    pred_iters = optdb.predictor_iterations or 1
-    for k in range(1, rank+pred_iters+1):
+    for k in range(1, rank+2):
       self.state.iteration = k
 
       # get new initial value (skip on first iteration)
@@ -405,8 +403,7 @@ class ParallelRunner(Runner):
     self.state.dt   = dt
     self.state.tend = tend
 
-    iterations = optdb.iterations or iterations
-    cycles = self.cycles(optdb.cycle or cycle)
+    cycles = self.cycles(cycle)
 
     #### build time interpolation matrices
     for l in range(nlevels-1):

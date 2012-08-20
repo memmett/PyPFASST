@@ -30,14 +30,9 @@
 
 import numpy as np
 
-from options import db as optdb
-
 
 def fas(dt, fSDCF, fSDCG, F, G, **kwargs):
   """Return FAS correction between *fSDCF* and *fSDCG*."""
-
-  if not optdb.use_fas:
-    return np.zeros((G.sdc.nnodes-1,)+G.feval.shape, dtype=fSDCF.dtype)
 
   # note: even if the number of variables and nodes are the same, we
   # should still compute the FAS correction since the function
