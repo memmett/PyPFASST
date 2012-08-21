@@ -69,29 +69,3 @@ def restrict_time_space(t0, dt, F, G, **kwargs):
   G.tau += fas(dt, F.fSDC, G.fSDC, F, G, **kwargs)
 
   G.call_hooks('post-restrict', **kwargs)
-
-  
-
-
-def restrict_space_sum_time(tauF, tauG, F, G, **kwargs):
-  """Restrict *tauF* in space and sum fine nodes in between the coarse
-  nodes in time."""
-
-  tauG[...] = 0.0
-
-  if tauF is None:
-    return
-
-  nnodesF = tauF.shape[0] + 1
-  nnodesG = tauG.shape[0] + 1
-
-  tratio = (nnodesF - 1) / (nnodesG - 1)
-
-  tmp = np.zeros(G.feval.shape, dtype=tauF.dtype)
-
-  for m in range(1, nnodesF):
-    mc = int(math.ceil(1.0*m/tratio))
-
-    F.restrict(tauF[m-1], tmp, fevalF=F.feval, fevalG=G.feval, **kwargs)
-
-    tauG[mc-1] += tmp
