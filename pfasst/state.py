@@ -48,6 +48,14 @@ class State(object):
     self.predictor = False
 
 
+  def set(self, **kwargs):
+
+    self.__dict__.update(kwargs)
+
+  def increment_cycle(self):
+
+    self.cycle += 1
+    
   def __repr__(self):
 
     return 'blk: %d, stp: %d, cyc: %d, nde: %d, itr: %d' % (

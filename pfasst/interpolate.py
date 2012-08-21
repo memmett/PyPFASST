@@ -52,7 +52,7 @@ def interpolate_correction(qF, qG, F, G, **kwargs):
 
 ###############################################################################
 
-def interpolate_correction_time_space(qSDCF, qSDCG, F, G, **kwargs):
+def interpolate_correction_time_space(t0, F, G, **kwargs):
   """**Adjust** *qSDCF* by interpolating the *qSDCG* correction in
   both space and time."""
 
@@ -65,21 +65,23 @@ def interpolate_correction_time_space(qSDCF, qSDCG, F, G, **kwargs):
   tratio = (nnodesF - 1) / (nnodesG - 1)
 
   if ((sizeF == sizeG) and (nnodesF == nnodesG)):
-    qSDCF[...] = qSDCG
+    F.qSDC[...] = G.qSDC
     return
 
+  G.call_hooks('pre-interpolate', **kwargs)
+
   # compute coarse increments
-  qSDCFr = np.zeros(qSDCG.shape, dtype=qSDCG.dtype)
+  qSDCFr = np.zeros(G.qSDC.shape, dtype=G.qSDC.dtype)
 
   for m in range(nnodesG):
     mf = m*tratio
-    F.restrict(qSDCF[mf], qSDCFr[m],
+    F.restrict(F.qSDC[mf], qSDCFr[m],
                fevalF=F.feval, fevalG=G.feval, **kwargs)
 
-  delG = qSDCG - qSDCFr
+  delG = G.qSDC - qSDCFr
 
   # interpolate increments in time
-  delGF  = np.empty(qSDCF.shape, dtype=qSDCF.dtype)
+  delGF  = np.empty(F.qSDC.shape, dtype=F.qSDC.dtype)
   delGFf = delGF.reshape((nnodesF,sizeF))
 
   for m in range(nnodesG):
@@ -91,8 +93,14 @@ def interpolate_correction_time_space(qSDCF, qSDCG, F, G, **kwargs):
   if tratio != 1:
     delGFf[1:nnodesF:tratio] = np.dot(F.time_interp_mat, delGFf[::tratio])
 
+  F.qSDC += delGF
 
-  qSDCF += delGF
+  # re-evaluate
+  F.sdc.evaluate(t0, F.qSDC, F.fSDC, 'all', F.feval, **kwargs)
+
+  G.call_hooks('post-interpolate', **kwargs)
+  
+
 
 
 ###############################################################################

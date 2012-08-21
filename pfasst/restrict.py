@@ -29,24 +29,48 @@
 
 
 import math
-
 import numpy as np
 
+from fas import fas
 
-def restrict_time_space(qSDCF, qSDCG, F, G, **kwargs):
-  """Restrict *qSDCF* in both time and space and store the
-  result in *qSDCG*."""
 
-  nnodesF = qSDCF.shape[0]
-  nnodesG = qSDCG.shape[0]
+def restrict_time_space(t0, dt, F, G, **kwargs):
+  """Restrict *F* in both time and space."""
+
+  nnodesF = F.qSDC.shape[0]
+  nnodesG = G.qSDC.shape[0]
 
   tratio = (nnodesF - 1) / (nnodesG - 1)
 
+  G.call_hooks('pre-restrict', **kwargs)
+
+  # restrict qSDC
   for m in range(nnodesG):
     mf = m*tratio
+    F.restrict(F.qSDC[mf], G.qSDC[m], fevalF=F.feval, fevalG=G.feval, **kwargs)
 
-    # restrict qSDCF to qSDCG
-    F.restrict(qSDCF[mf], qSDCG[m], fevalF=F.feval, fevalG=G.feval, **kwargs)
+  # restrict tau
+  G.tau[...] = 0.0
+
+  if F.tau is not None:
+
+    tmp = np.zeros(G.feval.shape, dtype=F.tau.dtype)
+
+    for m in range(1, nnodesF):
+      mc = int(math.ceil(1.0*m/tratio))
+
+      F.restrict(F.tau[m-1], tmp, fevalF=F.feval, fevalG=G.feval, **kwargs)
+      G.tau[mc-1] += tmp
+
+  # re-evaluate
+  G.sdc.evaluate(t0, G.qSDC, G.fSDC, 'all', G.feval, **kwargs)
+
+  # fas
+  G.tau += fas(dt, F.fSDC, G.fSDC, F, G, **kwargs)
+
+  G.call_hooks('post-restrict', **kwargs)
+
+  
 
 
 def restrict_space_sum_time(tauF, tauG, F, G, **kwargs):

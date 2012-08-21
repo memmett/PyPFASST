@@ -32,21 +32,19 @@ import math
 import numpy as np
 
 from restrict import restrict_time_space
-from restrict import restrict_space_sum_time
 from interpolate import interpolate_correction_time_space as interpolate_time_space
 from interpolate import interpolate_correction as interpolate
 from interpolate import time_interpolation_matrix
-from fas import fas
 
 from runner import Runner
 
 
-def identity_interpolator(yF, yG, **kwargs):
+def identity_interpolator(yF, yG, **kw):
   """Identity interpolator (simply copies)."""
   yF[...] = yG[...]
 
 
-def identity_restrictor(yF, yG, **kwargs):
+def identity_restrictor(yF, yG, **kw):
   """Identity interpolator (simply copies)."""
   yG[...] = yF[...]
 
@@ -122,8 +120,8 @@ class ParallelRunner(Runner):
 
   #############################################################################
 
-  def set_initial_conditions(self, q0, t0, dt, **kwargs):
-    """Set initial conditions."""
+  def spread_q0(self, q0, t0, dt, **kw):
+    """Spread q0 to all nodes and restrict throughout."""
 
     levels = self.levels
     T = levels[0]
@@ -137,213 +135,161 @@ class ParallelRunner(Runner):
     T.qSDC[0] = T.q0
 
     # evaluate at first node and spread
-    T.sdc.evaluate(t0, T.qSDC, T.fSDC, 0, T.feval, **kwargs)
+    T.sdc.evaluate(t0, T.qSDC, T.fSDC, 0, T.feval, **kw)
     for n in range(1, T.sdc.nnodes):
       T.qSDC[n]   = T.qSDC[0]
       for p in range(T.fSDC.shape[0]):
         T.fSDC[p,n] = T.fSDC[p,0]
-
 
     # evaluate forcing terms
     for F in self.levels:
       if F.forcing:
         for m in range(len(F.sdc.nodes)):
           t = t0 + dt*F.sdc.nodes[m]
-          F.feval.forcing(t, F.gSDC[m], **kwargs)
+          F.feval.forcing(t, F.gSDC[m], **kw)
 
     if T.forcing:
       T.fSDC[0] += T.gSDC
 
-    # restrict finest level to coarser levels
+    # restrict and compute fas corrections
     for F, G in self.fine_to_coarse:
-      restrict_time_space(F.qSDC, G.qSDC, F, G, **kwargs)
-      restrict_space_sum_time(F.tau, G.tau, F, G, **kwargs)
-
-      G.sdc.evaluate(t0, G.qSDC, G.fSDC, 'all', G.feval, **kwargs)
-
-      G.tau += fas(dt, F.fSDC, G.fSDC, F, G, **kwargs)
-
-    for F in self.levels:
-      F.q0[...] = F.qSDC[0]
+      restrict_time_space(t0, dt, F, G, **kw)
 
 
   #############################################################################
 
-  def predictor(self, t0, dt, **kwargs):
+  def predictor(self, t0, dt, **kw):
     """Perform the PFASST predictor."""
 
     B     = self.levels[-1]
     rank  = self.mpi.rank
-    ntime = self.mpi.ntime
+    state = self.state
+    
+    self.state.set(cycle=-1, iteration=-1, predictor=True)
+    B.call_hooks('pre-predictor', **kw)
 
-    self.state.cycle = -1
-    self.state.iteration = -1
-    self.state.predictor = True
-    B.call_hooks('pre-predictor', **kwargs)
+    B.q0[...] = B.qSDC[0]
 
+    # predictor loop
     for k in range(1, rank+2):
-      self.state.iteration = k
+      state.set(iteration=k)
 
       if k > 1:
         B.receive(k-1, blocking=True)
 
       for s in range(B.sweeps):
-        B.sdc.sweep(t0, dt, B, **kwargs)
-
+        B.sdc.sweep(t0, dt, B, **kw)
       B.send(k, blocking=True)
 
-    self.state.iteration = -1
-    B.call_hooks('post-predictor', **kwargs)
-    self.state.predictor = False
+    state.set(iteration=-1)
 
-    # interpolate coarest to finest and set initial conditions
+    B.call_hooks('post-predictor', **kw)
+
+    # interpolate
     for F, G in self.coarse_to_fine:
       # XXX: sweep in middle levels?
-      interpolate_time_space(F.qSDC, G.qSDC, F, G, **kwargs)
-      F.sdc.evaluate(t0, F.qSDC, F.fSDC, 'all', F.feval, **kwargs)
+      interpolate_time_space(t0, F, G, **kw)
 
+    # done
     for F in self.levels:
-      F.q0[...] = F.qSDC[0]
+      F.call_hooks('end-predictor', **kw)
 
-    for F in self.levels:
-      F.call_hooks('end-predictor', **kwargs)
+    state.set(predictor=False)
 
 
   #############################################################################
 
-  def iteration(self, t0, dt, **kwargs):
+  def iteration(self, k, t0, dt, **kw):
     """Perform one PFASST iteration."""
 
-    levels  = self.levels
-    nlevels = len(levels)
-
-    rank  = self.mpi.rank
-    ntime = self.mpi.ntime
-    k     = self.state.iteration
+    rank   = self.mpi.rank
+    state  = self.state
+    levels = self.levels
 
     T = levels[0]               # finest/top level
-    B = levels[nlevels-1]       # coarsest/bottom level
+    B = levels[-1]              # coarsest/bottom level
 
-    self.state.cycle = 0
-    T.call_hooks('pre-iteration', **kwargs)
+    state.set(iteration=k, cycle=0)
+    T.call_hooks('pre-iteration', **kw)
 
-
-    #### post receive requests
-
+    # post receive requests
     for F in levels[:-1]:
       F.post_receive((F.level+1)*100+k)
 
-
-    #### down
-
+    # down
     for F, G in self.fine_to_coarse:
-      self.state.cycle += 1
+      state.increment_cycle()
 
       for s in range(F.sweeps):
-        F.sdc.sweep(t0, dt, F, **kwargs)
-
+        F.sdc.sweep(t0, dt, F, **kw)
       F.send((F.level+1)*100+k, blocking=False)
 
-      G.call_hooks('pre-restrict', **kwargs)
+      restrict_time_space(t0, dt, F, G, **kw)
 
-      restrict_time_space(F.qSDC, G.qSDC, F, G, **kwargs)
-      restrict_space_sum_time(F.tau, G.tau, F, G, **kwargs)
-      G.sdc.evaluate(t0, G.qSDC, G.fSDC, 'all', G.feval, **kwargs)
-
-      G.tau += fas(dt, F.fSDC, G.fSDC, F, G, **kwargs)
-
-      G.call_hooks('post-restrict', **kwargs)
-
-
-    #### bottom
+    # bottom
+    state.increment_cycle()
 
     B.receive((B.level+1)*100+k, blocking=True)
-
     for s in range(B.sweeps):
-      B.sdc.sweep(t0, dt, B, **kwargs)
-
+      B.sdc.sweep(t0, dt, B, **kw)
     B.send((B.level+1)*100+k, blocking=True)
 
-
-    #### up
-
+    # up
     for F, G in self.coarse_to_fine:
-      self.state.cycle += 1
+      state.increment_cycle()
 
-      # interpolate
+      interpolate_time_space(t0, F, G, **kw)
 
-      G.call_hooks('pre-interpolate', **kwargs)
-
-      interpolate_time_space(F.qSDC, G.qSDC, F, G, **kwargs)
-      F.sdc.evaluate(t0, F.qSDC, F.fSDC, 'all', F.feval, **kwargs)
-
-      G.call_hooks('post-interpolate', **kwargs)
-
-      # get new initial value
-
-      F.receive((F.level+1)*100+k, **kwargs)
+      F.receive((F.level+1)*100+k, **kw)
       if rank > 0:
-        interpolate(F.q0, G.q0, F, G, **kwargs)
-
-      # sweep
+        interpolate(F.q0, G.q0, F, G, **kw)
 
       if F.level != 0:
         for s in range(F.sweeps):
-          F.sdc.sweep(t0, dt, F, **kwargs)
+          F.sdc.sweep(t0, dt, F, **kw)
 
-
-    #### done
-
-    self.state.cycle = 0
-    T.call_hooks('post-iteration', **kwargs)
+    # done
+    state.set(cycle=0)
+    T.call_hooks('post-iteration', **kw)
 
 
   #############################################################################
 
-  def run(self, q0=None, dt=None, tend=None, iterations=None, **kwargs):
+  def run(self, q0=None, dt=None, tend=None, iterations=None, **kw):
     """Run in parallel (PFASST)."""
 
     if q0 is None:
       raise ValueError, 'missing initial condition'
 
-
-    #### short cuts, state
-
-    levels  = self.levels
-
-    rank  = self.mpi.rank
-    ntime = self.mpi.ntime
+    rank   = self.mpi.rank
+    state  = self.state
+    ntime  = self.mpi.ntime
+    levels = self.levels
 
     self.state.dt   = dt
     self.state.tend = tend
 
-
-    #### build time interpolation matrices
-
     for F, G in self.fine_to_coarse:
       F.time_interp_mat = time_interpolation_matrix(F.sdc.nodes, G.sdc.nodes)
 
-
-    #### block loop
-
+    # time block loop
     nblocks = int(math.ceil(tend/(dt*ntime)))
-
     for block in range(nblocks):
 
       step = block*ntime + rank
       t0   = dt*step
 
-      self.state.t0    = t0
-      self.state.block = block
-      self.state.step  = step
+      state.set(t0=t0, block=block, step=step)
 
-      self.set_initial_conditions(q0, t0, dt, **kwargs)
-      self.predictor(t0, dt, **kwargs)
+      self.spread_q0(q0, t0, dt, **kw)
+      self.predictor(t0, dt, **kw)
 
-      # iterations
+      for F in self.levels:
+        F.q0[...] = F.qSDC[0]
+
       for k in range(iterations):
-        self.state.iteration = k
-        self.iteration(t0, dt, **kwargs)
+        self.iteration(k, t0, dt, **kw)
+
 
       # loop
       if nblocks > 1 and block < nblocks:
@@ -354,10 +300,8 @@ class ParallelRunner(Runner):
         q0 = T.qend
 
       for F in levels:
-        F.call_hooks('end-step', **kwargs)
+        F.call_hooks('end-step', **kw)
 
-
-    #### done
-
+    # done
     for F in levels:
-      F.call_hooks('end', **kwargs)
+      F.call_hooks('end', **kw)
