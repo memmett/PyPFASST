@@ -106,7 +106,7 @@ class Level(object):
 
     rank = self.pf.mpi.rank
 
-    if rank == self.pf.mpi.ntime:
+    if rank == self.pf.mpi.ntime or self.pf.mpi.ntime == 1:
       return
 
     self.call_hooks('pre-send')

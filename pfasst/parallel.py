@@ -296,6 +296,7 @@ class ParallelRunner(Runner):
         if self.mpi.nspace > 1:
           raise ValueError, 'looping not implemented for nspace > 1'
 
+        T = levels[0]
         self.mpi.comm.Bcast(T.qend, root=self.mpi.ntime-1)
         q0 = T.qend
 

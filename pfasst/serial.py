@@ -30,103 +30,33 @@
 import math
 import numpy as np
 
-from runner import Runner
+from parallel import ParallelRunner
 
 
-class SerialRunner(Runner):
+class SerialRunner(ParallelRunner):
   """Serial PFASST class/driver."""
 
 
-  #############################################################################
-
   def allocate(self, dtype):
+
+    ParallelRunner.allocate(self, dtype)
 
     levels  = self.levels
     nlevels = len(levels)
 
+    # remove send/recv buffers since we don't need them
     for l in range(nlevels):
-      shape  = levels[l].feval.shape
-      pieces = levels[l].feval.pieces
-      nnodes = levels[l].sdc.nnodes
+      del levels[l].qsend
+      del levels[l].qrecv
 
-      levels[l].q0   = np.zeros(shape, dtype=dtype)
-      levels[l].qend = np.zeros(shape, dtype=dtype)
-      levels[l].qSDC = np.zeros((nnodes,)+shape, dtype=dtype)
-      levels[l].fSDC = np.zeros((pieces,nnodes,)+shape, dtype=dtype)
+  
+  # the run method is now inherited from ParallelRunner, which reduces
+  # to MGSDC when only one processor is used
+    
 
-      if levels[l].forcing:
-        levels[l].gSDC = np.zeros((nnodes,)+shape, dtype=dtype)
-
-
-  #############################################################################
-
-  def run(self, q0=None, dt=None, tend=None, iterations=None, **kwargs):
-    """Run in serial (SDC)."""
-
-    #### short cuts, state, options
-
-    F = self.levels[0]
-
-    self.state.dt   = dt
-    self.state.tend = tend
+  def predictor(self, *args, **kwargs):
+    # MGSDC doesn't need this...
+    pass
 
 
-    #### set initial condition
 
-    if q0 is None:
-      raise ValueError, 'missing initial condition'
-
-    try:
-      F.q0[...] = q0
-    except ValueError:
-      raise ValueError, 'initial condition shape mismatch'
-
-
-    #### time "block" loop
-
-    nblocks = int(math.ceil(tend/dt))
-
-    for block in range(nblocks):
-
-      t0 = dt*block
-
-      self.state.t0     = t0
-      self.state.block  = block
-      self.state.step   = block
-
-      F.call_hooks('pre-iteration', **kwargs)
-
-      # set initial condtion
-      F.qSDC[0] = F.q0
-
-      # evaluate at first node and spread
-      F.sdc.evaluate(t0, F.qSDC, F.fSDC, 0, F.feval, **kwargs)
-
-      for n in range(1, F.sdc.nnodes):
-        F.qSDC[n]   = F.qSDC[0]
-        for p in range(F.fSDC.shape[0]):
-          F.fSDC[p,n] = F.fSDC[p,0]
-
-      if F.forcing:
-        for m in range(len(F.sdc.nodes)):
-          t = t0 + dt*F.sdc.nodes[m]
-          F.feval.forcing(t, F.gSDC[m], **kwargs)
-
-        F.fSDC[0] += F.gSDC
-
-      # sdc sweeps
-      for k in range(iterations):
-        self.state.iteration = k
-
-        for s in range(F.sweeps):
-          F.sdc.sweep(t0, dt, F, **kwargs)
-
-        # XXX: check residual and break if appropriate
-
-      F.call_hooks('post-iteration', **kwargs)
-      F.call_hooks('end-step',       **kwargs)
-
-      # set next initial condition
-      F.q0[...] = F.qend[...]
-
-    F.call_hooks('end', **kwargs)

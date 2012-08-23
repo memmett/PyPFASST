@@ -48,11 +48,16 @@ parser.add_argument('-d',
                     dest='dim',
                     default=1,
                     help='number of dimensions, defaults to 1')
+parser.add_argument('-n',
+                    type=int,
+                    dest='steps',
+                    default=MPI.COMM_WORLD.size,
+                    help='number of time steps, defaults to number of mpi processes')
 parser.add_argument('-l',
                     type=int,
                     dest='nlevs',
                     default=3,
-                    help='number of levels, defaults to 2')
+                    help='number of levels, defaults to 3')
 parser.add_argument('-R',
                     dest='RK',
                     default=False,
@@ -68,7 +73,7 @@ comm  = MPI.COMM_WORLD
 nproc = comm.size
 
 dt   = 0.01
-tend = dt*nproc
+tend = dt*options.steps
 
 N = 1024
 D = options.dim
@@ -106,7 +111,8 @@ def echo_error(level, state, **kwargs):
   print 'step: %03d, iteration: %03d, position: %d, level: %02d, error: %f' % (
     state.step, state.iteration, state.cycle, level.level, err)
 
-pf.add_hook(0, 'post-sweep', echo_error)
+for l in range(options.nlevs):
+  pf.add_hook(l, 'post-sweep', echo_error)
 
 
 ###############################################################################

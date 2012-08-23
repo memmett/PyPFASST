@@ -321,9 +321,10 @@ class PFASST(object):
       runner = rk.ARKRunner(RK)
     else:
       # use the SDC integrators
-      if self.mpi.ntime == 1 or len(self.levels) == 1:
+      if self.mpi.ntime == 1:
         runner = serial.SerialRunner()
       else:
+        assert self.nlevels > 1
         runner = parallel.ParallelRunner()
 
     runner.mpi    = self.mpi
