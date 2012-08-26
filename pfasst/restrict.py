@@ -34,7 +34,33 @@ import numpy as np
 from fas import fas
 
 
-def restrict_time_space(t0, dt, F, G, **kwargs):
+def _restrict_time_space(qSDCF, qSDCG, F, G, **kwargs):
+
+  nnodesF = qSDCF.shape[0]
+  shapeF  = qSDCF.shape[1:]
+
+  nnodesG = qSDCG.shape[0]
+  shapeG  = qSDCG.shape[1:]
+
+  # restrict required fine nodes
+  qSDCFr = {}
+  for m in range(nnodesF):
+    if any(F.rmask[:, m]):
+      qSDCFr[m] = np.zeros(shapeG, dtype=G.qSDC.dtype)
+      F.restrict(qSDCF[m], qSDCFr[m],
+                 fevalF=F.feval, fevalG=G.feval, **kwargs)
+
+  # apply restriction matrix
+  for i in range(nnodesG):
+    qSDCG[i] = 0.0
+
+    for j in range(nnodesF):
+      if F.rmask[i, j]:
+        qSDCG[i] += F.rmat[i, j] * qSDCFr[j]
+
+
+
+def restrict_time_space(t0, dt, F, G, restrict_functions=False, **kwargs):
   """Restrict *F* in both time and space."""
 
   nnodesF = F.qSDC.shape[0]
@@ -45,9 +71,7 @@ def restrict_time_space(t0, dt, F, G, **kwargs):
   G.call_hooks('pre-restrict', **kwargs)
 
   # restrict qSDC
-  for m in range(nnodesG):
-    mf = m*tratio
-    F.restrict(F.qSDC[mf], G.qSDC[m], fevalF=F.feval, fevalG=G.feval, **kwargs)
+  _restrict_time_space(F.qSDC, G.qSDC, F, G, **kwargs)
 
   # restrict tau
   G.tau[...] = 0.0
@@ -63,7 +87,12 @@ def restrict_time_space(t0, dt, F, G, **kwargs):
       G.tau[mc-1] += tmp
 
   # re-evaluate
-  G.sdc.evaluate(t0, G.qSDC, G.fSDC, 'all', G.feval, **kwargs)
+  if restrict_functions:
+    for p in range(F.feval.pieces):
+      _restrict_time_space(F.fSDC[p], G.fSDC[p], F, G, **kwargs)
+  else:
+    G.sdc.evaluate(t0, G.qSDC, G.fSDC, 'all', G.feval, **kwargs)
+
 
   # fas
   G.tau += fas(dt, F.fSDC, G.fSDC, F, G, **kwargs)
