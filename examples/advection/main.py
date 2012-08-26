@@ -111,8 +111,7 @@ def echo_error(level, state, **kwargs):
   print 'step: %03d, iteration: %03d, position: %d, level: %02d, error: %f' % (
     state.step, state.iteration, state.cycle, level.level, err)
 
-for l in range(options.nlevs):
-  pf.add_hook(l, 'post-sweep', echo_error)
+pf.add_hook(0, 'post-sweep', echo_error)
 
 
 ###############################################################################

@@ -270,7 +270,8 @@ class ParallelRunner(Runner):
     self.state.tend = tend
 
     for F, G in self.fine_to_coarse:
-      F.time_interp_mat = time_interpolation_matrix(F.sdc.nodes, G.sdc.nodes)
+      F.tmat, F.tmask = time_interpolation_matrix(F.sdc.nodes, G.sdc.nodes)
+      F.rmat, F.rmask = time_interpolation_matrix(G.sdc.nodes, F.sdc.nodes)
 
     # time block loop
     nblocks = int(math.ceil(tend/(dt*ntime)))

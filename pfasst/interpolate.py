@@ -57,10 +57,12 @@ def interpolate_correction_time_space(t0, F, G, **kwargs):
   both space and time."""
 
   nnodesF = F.sdc.nnodes
-  nnodesG = G.sdc.nnodes
+  shapeF  = F.feval.shape
+  sizeF   = F.feval.size
 
-  sizeF = F.feval.size
-  sizeG = G.feval.size
+  nnodesG = G.sdc.nnodes
+  shapeG  = G.feval.shape
+  sizeG   = G.feval.size
 
   tratio = (nnodesF - 1) / (nnodesG - 1)
 
@@ -70,32 +72,45 @@ def interpolate_correction_time_space(t0, F, G, **kwargs):
 
   G.call_hooks('pre-interpolate', **kwargs)
 
-  # compute coarse increments
-  qSDCFr = np.zeros(G.qSDC.shape, dtype=G.qSDC.dtype)
+  #### compute coarse corrections
+
+  delG_C = G.qSDC.copy()
+
+  # restrict required fine nodes
+  qSDCFr = {}
+
+  for m in range(nnodesF):
+    if any(F.rmask[:, m]):
+      qSDCFr[m] = np.zeros(shapeG, dtype=G.qSDC.dtype)
+      F.restrict(F.qSDC[m], qSDCFr[m],
+                 fevalF=F.feval, fevalG=G.feval, **kwargs)
+
+  # apply restriction matrix to compute coarse corrections
+  for i in range(nnodesG):
+    for j in range(nnodesF):
+      if F.rmask[i, j]:
+        delG_C[i] -= F.rmat[i, j] * qSDCFr[j]
+
+  del qSDCFr
+
+
+  #### interpolate increments in time
+
+  delG_F = np.empty((nnodesG,) + shapeF, dtype=F.qSDC.dtype)
 
   for m in range(nnodesG):
-    mf = m*tratio
-    F.restrict(F.qSDC[mf], qSDCFr[m],
-               fevalF=F.feval, fevalG=G.feval, **kwargs)
-
-  delG = G.qSDC - qSDCFr
-
-  # interpolate increments in time
-  delGF  = np.empty(F.qSDC.shape, dtype=F.qSDC.dtype)
-  delGFf = delGF.reshape((nnodesF,sizeF))
-
-  for m in range(nnodesG):
-    mf = m*tratio
-    F.interpolate(delGF[mf], delG[m],
+    F.interpolate(delG_F[m], delG_C[m],
                   fevalF=F.feval, fevalG=G.feval, **kwargs)
 
-  # interpolate inbetween nodes
-  if tratio != 1:
-    delGFf[1:nnodesF:tratio] = np.dot(F.time_interp_mat, delGFf[::tratio])
+  # apply interpolation matrix to compute fine corrections
+  for i in range(nnodesF):
+    for j in range(nnodesG):
+      if F.tmask[i, j]:
+        F.qSDC[i] += F.tmat[i, j] * delG_F[j]
 
-  F.qSDC += delGF
 
-  # re-evaluate
+  #### re-evaluate
+
   F.sdc.evaluate(t0, F.qSDC, F.fSDC, 'all', F.feval, **kwargs)
 
   G.call_hooks('post-interpolate', **kwargs)
@@ -112,34 +127,27 @@ def time_interpolation_matrix(nodesF, nodesG, dtype=np.float64):
   nnodesF = len(nodesF)
   nnodesG = len(nodesG)
 
-  ndiff  = nnodesF - nnodesG
-  tratio = (nnodesF - 1) / (nnodesG - 1)
+  tmat  = np.zeros((nnodesF, nnodesG), dtype=dtype)
+  tmask = np.zeros((nnodesF, nnodesG), dtype=np.int8)
 
-  if tratio == 1:
-    interp_mat = 1.0
+  for i in range(nnodesF):
+    xi = nodesF[i]
 
-  elif tratio == 2:
-    interp_mat = np.zeros((ndiff,nnodesG), dtype=dtype)
+    for j in range(nnodesG):
 
-    for i in range(ndiff):
-      xi = nodesF[i*tratio+1]
+      den = 1.0
+      num = 1.0
 
-      for j in range(nnodesG):
+      ks = range(nnodesG)
+      ks.remove(j)
 
-        den = 1.0
-        num = 1.0
+      for k in ks:
+        den = den * (nodesG[j] - nodesG[k])
+        num = num * (xi        - nodesG[k])
 
-        ks = range(nnodesG)
-        ks.remove(j)
+      tmat[i, j] = num/den
 
-        for k in ks:
-          den = den * (nodesG[j] - nodesG[k])
-          num = num * (xi    - nodesG[k])
+      if abs(num) > 1e-12:
+        tmask[i, j] = True
 
-        interp_mat[i,j] = num/den
-
-  else:
-    raise NotImplementedError, 'time ratio must be 1 or 2 (currently)'
-
-
-  return interp_mat
+  return tmat, tmask
