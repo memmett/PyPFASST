@@ -78,6 +78,8 @@ tend = dt*options.steps
 N = 1024
 D = options.dim
 
+nnodes = [ 9, 5, 3 ]
+
 
 ###############################################################################
 # init pfasst
@@ -87,7 +89,7 @@ pf.simple_communicators(ntime=nproc, comm=comm)
 
 for l in range(options.nlevs):
   F = AD(shape=D*(N,), refinement=2**l, dim=D)
-  SDC = pfasst.imex.IMEXSDC('GL', 9, 2**l)
+  SDC = pfasst.imex.IMEXSDC('GL', nnodes[l])
   pf.add_level(F, SDC, interpolate, restrict)
 
 if len(pf.levels) > 1:

@@ -93,14 +93,6 @@ class ParallelRunner(Runner):
 
   def sanity_checks(self):
 
-    # check that sdc nodes between levels overlap
-    for F, G in self.fine_to_coarse:
-      tratio = (F.sdc.nnodes - 1) / (G.sdc.nnodes - 1)
-
-      d = abs(F.sdc.nodes[::tratio] - G.sdc.nodes).max()
-      if d > 1e-12:
-        raise ValueError, "SDC nodes don't overlap"
-
     # check first and last SDC nodes
     for F in self.levels:
       if F.sdc.nodes[0] != 0.0:
