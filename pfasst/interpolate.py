@@ -50,27 +50,13 @@ def interpolate_correction(qF, qG, F, G, **kwargs):
   qF += delF
 
 
-###############################################################################
+def _interpolate_correction_time_space(qSDCF, qSDCG, F, G, **kwargs):
 
-def interpolate_correction_time_space(t0, F, G, **kwargs):
-  """**Adjust** *qSDCF* by interpolating the *qSDCG* correction in
-  both space and time."""
+  nnodesF = qSDCF.shape[0]
+  shapeF  = qSDCF.shape[1:]
 
-  nnodesF = F.sdc.nnodes
-  shapeF  = F.feval.shape
-  sizeF   = F.feval.size
-
-  nnodesG = G.sdc.nnodes
-  shapeG  = G.feval.shape
-  sizeG   = G.feval.size
-
-  tratio = (nnodesF - 1) / (nnodesG - 1)
-
-  if ((sizeF == sizeG) and (nnodesF == nnodesG)):
-    F.qSDC[...] = G.qSDC
-    return
-
-  G.call_hooks('pre-interpolate', **kwargs)
+  nnodesG = qSDCG.shape[0]
+  shapeG  = qSDCG.shape[1:]
 
   #### compute coarse corrections
 
@@ -78,7 +64,6 @@ def interpolate_correction_time_space(t0, F, G, **kwargs):
 
   # restrict required fine nodes
   qSDCFr = {}
-
   for m in range(nnodesF):
     if any(F.rmask[:, m]):
       qSDCFr[m] = np.zeros(shapeG, dtype=G.qSDC.dtype)
@@ -109,9 +94,35 @@ def interpolate_correction_time_space(t0, F, G, **kwargs):
         F.qSDC[i] += F.tmat[i, j] * delG_F[j]
 
 
-  #### re-evaluate
 
-  F.sdc.evaluate(t0, F.qSDC, F.fSDC, 'all', F.feval, **kwargs)
+###############################################################################
+
+def interpolate_correction_time_space(t0, F, G, 
+                                      interpolate_functions=False, **kwargs):
+  """**Adjust** *qSDCF* by interpolating the *qSDCG* correction in
+  both space and time."""
+
+  nnodesF = F.sdc.nnodes
+  shapeF  = F.feval.shape
+
+  nnodesG = G.sdc.nnodes
+  shapeG  = G.feval.shape
+
+  tratio = (nnodesF - 1) / (nnodesG - 1)
+
+  G.call_hooks('pre-interpolate', **kwargs)
+
+  if ((shapeF == shapeG) and (nnodesF == nnodesG)):
+    F.qSDC[...] = G.qSDC
+  else:
+    _interpolate_correction_time_space(F.qSDC, G.qSDC, F, G, **kwargs)
+
+  # re-evaluate
+  if interpolate_functions:
+    for p in range(F.feval.pieces):
+      _interpolate_correction_time_space(F.fSDC[p], G.fSDC[p], F, G, **kwargs)
+  else:
+    F.sdc.evaluate(t0, F.qSDC, F.fSDC, 'all', F.feval, **kwargs)
 
   G.call_hooks('post-interpolate', **kwargs)
   
