@@ -74,17 +74,27 @@ def restrict_time_space(t0, dt, F, G, restrict_functions=False, **kwargs):
   _restrict_time_space(F.qSDC, G.qSDC, F, G, **kwargs)
 
   # restrict tau
-  G.tau[...] = 0.0
-
   if F.tau is not None:
 
-    tmp = np.zeros(G.feval.shape, dtype=F.tau.dtype)
-
+    # convert fine tau from 'node to node' to '0 to node'
+    tauF = np.zeros((nnodesF,) + F.tau.shape[1:], dtype=F.tau.dtype)
     for m in range(1, nnodesF):
-      mc = int(math.ceil(1.0*m/tratio))
+      tauF[m] = tauF[m-1] + F.tau[m-1]
 
-      F.restrict(F.tau[m-1], tmp, fevalF=F.feval, fevalG=G.feval, **kwargs)
-      G.tau[mc-1] += tmp
+    # restrict
+    tauG = np.zeros((nnodesG,) + G.tau.shape[1:], dtype=G.tau.dtype)
+    _restrict_time_space(tauF, tauG, F, G, **kwargs)
+
+    # convert coarse tau from '0 to node' to 'node to node'
+    for m in range(nnodesG-1, 1, -1):
+      tauG[m] -= tauG[m-1]
+
+    # set coarse tau
+    G.tau[...] = tauG[1:]
+
+  else:
+    G.tau[...] = 0.0
+
 
   # re-evaluate
   if restrict_functions:
