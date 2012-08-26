@@ -1,6 +1,6 @@
 """PyPFASST FAS routines."""
 
-# Copyright (c) 2011, Matthew Emmett.  All rights reserved.
+# Copyright (c) 2011, 2012, Matthew Emmett.  All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -31,6 +31,35 @@
 import numpy as np
 
 
+###############################################################################
+
+def restrict_sdc(qSDCF, qSDCG, F, G, **kwargs):
+  """Restrict quantities defined on the fine SDC nodes to coarse SDC nodes."""
+
+  nnodesF = qSDCF.shape[0]
+  shapeF  = qSDCF.shape[1:]
+
+  nnodesG = qSDCG.shape[0]
+  shapeG  = qSDCG.shape[1:]
+
+  # restrict required fine nodes
+  qSDCFr = {}
+  for m in range(nnodesF):
+    if any(F.rmask[:, m]):
+      qSDCFr[m] = np.zeros(shapeG, dtype=G.qSDC.dtype)
+      F.restrict(qSDCF[m], qSDCFr[m],
+                 fevalF=F.feval, fevalG=G.feval, **kwargs)
+
+  # apply restriction matrix
+  for i in range(nnodesG):
+    qSDCG[i] = 0.0
+    for j in range(nnodesF):
+      if F.rmask[i, j]:
+        qSDCG[i] += F.rmat[i, j] * qSDCFr[j]
+
+
+###############################################################################
+
 def fas(dt, fSDCF, fSDCG, F, G, **kwargs):
   """Return FAS correction between *fSDCF* and *fSDCG*."""
 
@@ -38,46 +67,36 @@ def fas(dt, fSDCF, fSDCG, F, G, **kwargs):
   # should still compute the FAS correction since the function
   # evaluations may be different (eg, lower order operator for G)
 
-  sizeF = F.feval.size
-  sizeG = G.feval.size
+  nnodesF = F.sdc.nnodes
+  shapeF  = F.feval.shape
 
-  fF = np.empty((F.sdc.nnodes,)+F.feval.shape, dtype=fSDCF.dtype)
-  fG = np.empty((G.sdc.nnodes,)+G.feval.shape, dtype=fSDCG.dtype)
+  nnodesG = G.sdc.nnodes
+  shapeG  = G.feval.shape
 
-  fFf = fF.reshape((F.sdc.nnodes,sizeF))
-  fGf = fG.reshape((G.sdc.nnodes,sizeG))
+  # fine '0 to node' integral of fine function
+  FofF = np.zeros((nnodesF,) + shapeF, dtype=fSDCF.dtype)
+  for i in range(1, nnodesF):
+    FofF[i] = FofF[i-1]
+    for j in range(nnodesF):
+      for p in range(fSDCF.shape[0]):
+        FofF[i] += dt * F.sdc.smat[i-1, j] * fSDCF[p, j]
 
-  for m in range(F.sdc.nnodes):
-    fF[m] = fSDCF[0,m]
-    for p in range(1, fSDCF.shape[0]):
-      fF[m] += fSDCF[p,m]
+  # coarse value of fine integral
+  CofF = np.zeros((nnodesG,) + shapeG, dtype=fSDCG.dtype)
+  restrict_sdc(FofF, CofF, F, G, **kwargs)
 
-  for m in range(G.sdc.nnodes):
-    fG[m] = fSDCG[0,m]
-    for p in range(1, fSDCG.shape[0]):
-      fG[m] += fSDCG[p,m]
+  # coarse '0 to node' integral of coarse function
+  CofG = np.zeros((nnodesG,) + shapeG, dtype=fSDCG.dtype)
+  for i in range(1, nnodesG):
+    CofG[i] = CofG[i-1]
+    for j in range(nnodesG):
+      for p in range(fSDCG.shape[0]):
+        CofG[i] += dt * G.sdc.smat[i-1, j] * fSDCG[p, j]
 
-  # fine integral of fine function
-  FofFf = dt * np.dot(F.sdc.smat, fFf)
-  FofF  = FofFf.reshape((F.sdc.nnodes-1,)+F.feval.shape)
+  # convert from '0 to node' to 'node to node'
+  for m in range(nnodesG-1, 1, -1):
+    CofF[m] -= CofF[m-1]
+    CofG[m] -= CofG[m-1]
 
-  # coarse integral of coarse function
-  CofCf = dt * np.dot(G.sdc.smat, fGf)
-  CofC  = CofCf.reshape((G.sdc.nnodes-1,)+G.feval.shape)
-
-  # coarse value of fine integral (restrict fine to coarse, sum fine
-  # nodes between coarse nodes)
-  CofF = np.zeros((G.sdc.nnodes-1,)+G.feval.shape, dtype=fSDCF.dtype)
-  tratio = (F.sdc.nnodes-1) / (G.sdc.nnodes-1)
-
-  tmp = np.zeros(G.feval.shape, dtype=fSDCF.dtype)
-
-  for m in range(F.sdc.nnodes-1):
-    mc = m/tratio
-
-    F.restrict(FofF[m], tmp, fevalF=F.feval, fevalG=G.feval, **kwargs)
-
-    CofF[mc] += tmp
-
-  return CofF - CofC
+  return (CofF - CofG)[1:]
 
