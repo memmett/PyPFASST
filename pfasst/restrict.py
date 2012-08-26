@@ -1,6 +1,6 @@
 """PyPFASST restrict routines."""
 
-# Copyright (c) 2011, Matthew Emmett.  All rights reserved.
+# Copyright (c) 2011, 2012 Matthew Emmett.  All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -31,34 +31,10 @@
 import math
 import numpy as np
 
-from fas import fas
+from fas import fas, restrict_sdc
 
 
-def _restrict_time_space(qSDCF, qSDCG, F, G, **kwargs):
-
-  nnodesF = qSDCF.shape[0]
-  shapeF  = qSDCF.shape[1:]
-
-  nnodesG = qSDCG.shape[0]
-  shapeG  = qSDCG.shape[1:]
-
-  # restrict required fine nodes
-  qSDCFr = {}
-  for m in range(nnodesF):
-    if any(F.rmask[:, m]):
-      qSDCFr[m] = np.zeros(shapeG, dtype=G.qSDC.dtype)
-      F.restrict(qSDCF[m], qSDCFr[m],
-                 fevalF=F.feval, fevalG=G.feval, **kwargs)
-
-  # apply restriction matrix
-  for i in range(nnodesG):
-    qSDCG[i] = 0.0
-
-    for j in range(nnodesF):
-      if F.rmask[i, j]:
-        qSDCG[i] += F.rmat[i, j] * qSDCFr[j]
-
-
+###############################################################################
 
 def restrict_time_space(t0, dt, F, G, restrict_functions=False, **kwargs):
   """Restrict *F* in both time and space."""
@@ -66,12 +42,10 @@ def restrict_time_space(t0, dt, F, G, restrict_functions=False, **kwargs):
   nnodesF = F.qSDC.shape[0]
   nnodesG = G.qSDC.shape[0]
 
-  tratio = (nnodesF - 1) / (nnodesG - 1)
-
   G.call_hooks('pre-restrict', **kwargs)
 
   # restrict qSDC
-  _restrict_time_space(F.qSDC, G.qSDC, F, G, **kwargs)
+  restrict_sdc(F.qSDC, G.qSDC, F, G, **kwargs)
 
   # restrict tau
   if F.tau is not None:
@@ -83,7 +57,7 @@ def restrict_time_space(t0, dt, F, G, restrict_functions=False, **kwargs):
 
     # restrict
     tauG = np.zeros((nnodesG,) + G.tau.shape[1:], dtype=G.tau.dtype)
-    _restrict_time_space(tauF, tauG, F, G, **kwargs)
+    restrict_sdc(tauF, tauG, F, G, **kwargs)
 
     # convert coarse tau from '0 to node' to 'node to node'
     for m in range(nnodesG-1, 1, -1):
@@ -95,14 +69,12 @@ def restrict_time_space(t0, dt, F, G, restrict_functions=False, **kwargs):
   else:
     G.tau[...] = 0.0
 
-
   # re-evaluate
   if restrict_functions:
     for p in range(F.feval.pieces):
-      _restrict_time_space(F.fSDC[p], G.fSDC[p], F, G, **kwargs)
+      restrict_sdc(F.fSDC[p], G.fSDC[p], F, G, **kwargs)
   else:
     G.sdc.evaluate(t0, G.qSDC, G.fSDC, 'all', G.feval, **kwargs)
-
 
   # fas
   G.tau += fas(dt, F.fSDC, G.fSDC, F, G, **kwargs)

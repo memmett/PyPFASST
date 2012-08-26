@@ -1,6 +1,6 @@
 """PyPFASST interpolation routines."""
 
-# Copyright (c) 2011, Matthew Emmett.  All rights reserved.
+# Copyright (c) 2011, 2012 Matthew Emmett.  All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -31,6 +31,8 @@
 import numpy as np
 
 
+###############################################################################
+
 def interpolate_correction(qF, qG, F, G, **kwargs):
   """**Adjust** *qF* by interpolating the *qG* correction.
 
@@ -50,7 +52,12 @@ def interpolate_correction(qF, qG, F, G, **kwargs):
   qF += delF
 
 
-def _interpolate_correction_time_space(qSDCF, qSDCG, F, G, **kwargs):
+###############################################################################
+
+def interpolate_sdc(qSDCF, qSDCG, F, G, **kwargs):
+  """Interpolate quantities defined on coarse SDC nodes to fine SDC nodes.
+
+  The corrections are interpolate, not the raw values."""
 
   nnodesF = qSDCF.shape[0]
   shapeF  = qSDCF.shape[1:]
@@ -76,9 +83,6 @@ def _interpolate_correction_time_space(qSDCF, qSDCG, F, G, **kwargs):
       if F.rmask[i, j]:
         delG_C[i] -= F.rmat[i, j] * qSDCFr[j]
 
-  del qSDCFr
-
-
   #### interpolate increments in time
 
   delG_F = np.empty((nnodesG,) + shapeF, dtype=F.qSDC.dtype)
@@ -92,7 +96,6 @@ def _interpolate_correction_time_space(qSDCF, qSDCG, F, G, **kwargs):
     for j in range(nnodesG):
       if F.tmask[i, j]:
         F.qSDC[i] += F.tmat[i, j] * delG_F[j]
-
 
 
 ###############################################################################
@@ -112,21 +115,16 @@ def interpolate_correction_time_space(t0, F, G,
 
   G.call_hooks('pre-interpolate', **kwargs)
 
-  if ((shapeF == shapeG) and (nnodesF == nnodesG)):
-    F.qSDC[...] = G.qSDC
-  else:
-    _interpolate_correction_time_space(F.qSDC, G.qSDC, F, G, **kwargs)
+  interpolate_sdc(F.qSDC, G.qSDC, F, G, **kwargs)
 
   # re-evaluate
   if interpolate_functions:
     for p in range(F.feval.pieces):
-      _interpolate_correction_time_space(F.fSDC[p], G.fSDC[p], F, G, **kwargs)
+      interpolate_sdc(F.fSDC[p], G.fSDC[p], F, G, **kwargs)
   else:
     F.sdc.evaluate(t0, F.qSDC, F.fSDC, 'all', F.feval, **kwargs)
 
   G.call_hooks('post-interpolate', **kwargs)
-  
-
 
 
 ###############################################################################
