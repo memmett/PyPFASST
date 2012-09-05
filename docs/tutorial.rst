@@ -2,10 +2,10 @@ Tutorial
 ========
 
 
-The Advection/Diffusion (AD) example
-------------------------------------
+Advection/Diffusion
+-------------------
 
-To run the AD example::
+To run the advection/diffustion (AD) example::
 
 $ cd PyPFASST
 $ export PYTHONPATH=$PYTHONPATH:$PWD

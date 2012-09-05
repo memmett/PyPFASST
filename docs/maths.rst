@@ -1,9 +1,6 @@
 Maths
 =====
 
-Overview
---------
-
 The PFASST algorithm is, in some ways, similar to the parareal method
 for the temporal parallelization of ODEs and PDEs.  These methods can
 be roughly described in terms of two numerical approximation methods,

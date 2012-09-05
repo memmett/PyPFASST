@@ -46,12 +46,6 @@ IMEX
 .. automodule:: pfasst.imex
    :members:
 
-MPI
-^^^
-
-.. autoclass:: pfasst.mpi.PFASSTMPI
-   :members:
-
 
 Low-level routines (guts)
 -------------------------
@@ -78,17 +72,4 @@ FAS
 ^^^
 
 .. automodule:: pfasst.fas
-   :members:
-
-
-Runners
-^^^^^^^
-
-.. automodule:: pfasst.runner
-   :members:
-
-.. automodule:: pfasst.serial
-   :members:
-
-.. automodule:: pfasst.parallel
    :members:
