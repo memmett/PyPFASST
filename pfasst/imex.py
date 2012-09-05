@@ -45,7 +45,7 @@ import sdc
 
 
 class IMEXFEval(feval.FEval):
-  """IMEX function evaluation base class.
+  r"""IMEX function evaluation base class.
 
   Methods in this class should be overridden with problem specific
   evaluators.
@@ -75,8 +75,9 @@ class IMEXFEval(feval.FEval):
      >>> f2_solve(rhs, q, t, dt, f2, **kwargs)
 
      The implicit solution of :math:`q - \Delta t f_2(q) =
-     \text{RHS}`` should be stored in *q*.  The value of
+     \text{RHS}` should be stored in *q*.  The value of
      :math:`f_2(q)` should be stored in *f2*.
+
 
   Note that by omitting *f1eval* or both of *f2eval* and *f2solv*,
   this becomes a purely implicit or explicit evaluator, respectively.

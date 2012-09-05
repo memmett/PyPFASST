@@ -31,8 +31,8 @@ html_sidebars = {
     }
 
 # project information
-project   = 'PFASST'
-copyright = '2011, Matthew Emmett'
+project   = 'PyPFASST'
+copyright = '2011, 2012 Matthew Emmett'
 
 execfile('../version.py')               # this sets 'version'
 release = version

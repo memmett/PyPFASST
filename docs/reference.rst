@@ -46,24 +46,11 @@ IMEX
 .. automodule:: pfasst.imex
    :members:
 
-Explicit
-^^^^^^^^
-
-.. automodule:: pfasst.explicit
-   :members:
-
 MPI
 ^^^
 
 .. autoclass:: pfasst.mpi.PFASSTMPI
    :members:
-
-
-.. Options
-.. ^^^^^^^
-
-.. .. automodule:: pfasst.options
-..    :members:
 
 
 Low-level routines (guts)

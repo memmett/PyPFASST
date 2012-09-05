@@ -32,15 +32,15 @@ class FEval(object):
   """Function evaluation base class.
 
   Methods in this class should be overridden with problem specific
-  evaluators.  Each instance of the class is associated with a
-  PFASST level.  The shape of the unknowns associated with this
+  evaluators.  Each instance of the class is associated with a PFASST
+  level.  The shape of the unknowns associated with this
   evaluator/level should be stored in the instance variable *shape*.
   The total number of unknowns associated with this evaluator/level
   should be stored in the instance variable *size* (note also that
-  *size* should be the product of *shape*).  If the function is
-  broken into several pieces (ie, explicit and pieces), then the
-  number of pieces should be stored in the instance variable
-  *pieces* (each piece has shape *shape* and size *size*).
+  *size* should be the product of *shape*).  If the function is broken
+  into several pieces (ie, explicit and pieces), then the number of
+  pieces should be stored in the instance variable *pieces* (each
+  piece has shape *shape* and size *size*).
 
   See also :py:class:`pfasst.imex.IMEXFEval`.
 
@@ -65,7 +65,7 @@ class FEval(object):
 
      Method to compute time-dependent forcing (efficiently).  Called as:
 
-       feval.forcing(t, f, **kwargs)
+     >>> feval.forcing(t, f, **kwargs)
 
      where t is time and f is where the force should be stored.
 
