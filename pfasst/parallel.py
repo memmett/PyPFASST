@@ -69,10 +69,12 @@ class ParallelRunner(Runner):
 
       levels[l].q0    = np.zeros(shape, dtype=dtype)
       levels[l].qend  = np.zeros(shape, dtype=dtype)
-      levels[l].qsend = np.zeros(shape, dtype=dtype)
-      levels[l].qrecv = np.zeros(shape, dtype=dtype)
       levels[l].qSDC  = np.zeros((nnodes,)+shape, dtype=dtype)
       levels[l].fSDC  = np.zeros((pieces,nnodes,)+shape, dtype=dtype)
+
+      if self.mpi.ntime > 1:
+        levels[l].qsend = np.zeros(shape, dtype=dtype)
+        levels[l].qrecv = np.zeros(shape, dtype=dtype)
 
       if l > 0:
         levels[l].tau = np.zeros((nnodes-1,)+shape, dtype=dtype)
@@ -275,7 +277,9 @@ class ParallelRunner(Runner):
       state.set(t0=t0, block=block, step=step)
 
       self.spread_q0(q0, t0, dt, **kw)
-      self.predictor(t0, dt, **kw)
+
+      if self.mpi.ntime > 1:
+        self.predictor(t0, dt, **kw)
 
       for F in self.levels:
         F.q0[...] = F.qSDC[0]

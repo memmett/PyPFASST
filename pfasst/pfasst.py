@@ -1,6 +1,6 @@
 """PyPFASST PFASST class."""
 
-# Copyright (c) 2011, Matthew Emmett.  All rights reserved.
+# Copyright (c) 2011, 2012 Matthew Emmett.  All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -317,15 +317,11 @@ class PFASST(object):
 
     if RK is not None:
       # use the IMEX Runge-Kutta (for serial runs only)
-      # XXX: this an ugly way of doing this...
+      # XXX: this an ugly way of doing this
+      # XXX: should probably just get rid of the ARK stuff?
       runner = rk.ARKRunner(RK)
     else:
-      # use the SDC integrators
-      if self.mpi.ntime == 1:
-        runner = serial.SerialRunner()
-      else:
-        assert self.nlevels > 1
-        runner = parallel.ParallelRunner()
+      runner = parallel.ParallelRunner()
 
     runner.mpi    = self.mpi
     runner.state  = self.state
