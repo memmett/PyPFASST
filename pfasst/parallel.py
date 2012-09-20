@@ -36,8 +36,6 @@ from interpolate import interpolate_correction_time_space as interpolate_time_sp
 from interpolate import interpolate_correction as interpolate
 from interpolate import time_interpolation_matrix
 
-from runner import Runner
-
 
 def identity_interpolator(yF, yG, **kw):
   """Identity interpolator (simply copies)."""
@@ -51,7 +49,7 @@ def identity_restrictor(yF, yG, **kw):
 
 ###############################################################################
 
-class ParallelRunner(Runner):
+class ParallelRunner(object):
   """Parallel PFASST class/driver."""
 
 

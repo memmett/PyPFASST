@@ -1,8 +1,5 @@
 
-try:
-    from pfasst import PFASST
-except:
-    print 'WARNING: Unable to import PFASST.'
+from pfasst import PFASST
 
 __all__ = []
 

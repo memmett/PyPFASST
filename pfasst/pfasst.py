@@ -32,11 +32,8 @@ from mpi4py import MPI
 
 import mpi
 import state
-import serial
 import parallel
-import rk
-
-from level import Level
+import level
 
 
 class PFASST(object):
@@ -196,27 +193,27 @@ class PFASST(object):
 
     """
 
-    level = Level()
+    F = level.Level()
 
-    level.feval       = feval
-    level.feval.level = level
-    level.sdc         = sdc
-    level.sdc.level   = level
-    level.interpolate = interpolate
-    level.restrict    = restrict
+    F.feval       = feval
+    F.feval.level = F
+    F.sdc         = sdc
+    F.sdc.level   = F
+    F.interpolate = interpolate
+    F.restrict    = restrict
 
-    level.level       = len(self.levels)
-    level.hooks       = {}
-    level.sweeps      = 1
+    F.level       = len(self.levels)
+    F.hooks       = {}
+    F.sweeps      = 1
 
-    level.pf          = self
-    level.sdc.pf      = self
+    F.pf          = self
+    F.sdc.pf      = self
 
 
     if getattr(feval, 'forcing', None) is not None:
-      level.forcing = True
+      F.forcing = True
 
-    self.levels.append(level)
+    self.levels.append(F)
 
 
   @property
@@ -286,9 +283,7 @@ class PFASST(object):
 
   #############################################################################
 
-  def run(self,
-          q0=None, dt=None, tend=None, iterations=12,
-          RK=None, **kwargs):
+  def run(self, q0=None, dt=None, tend=None, iterations=12, **kwargs):
     """Run the PFASST solver.
 
     :param q0: initial condition (flat numpy array, real or complex)
@@ -315,14 +310,7 @@ class PFASST(object):
     if len(self.levels) == 0:
       raise ValueError, 'no levels have been added yet'
 
-    if RK is not None:
-      # use the IMEX Runge-Kutta (for serial runs only)
-      # XXX: this an ugly way of doing this
-      # XXX: should probably just get rid of the ARK stuff?
-      runner = rk.ARKRunner(RK)
-    else:
-      runner = parallel.ParallelRunner()
-
+    runner = parallel.ParallelRunner()
     runner.mpi    = self.mpi
     runner.state  = self.state
     runner.levels = self.levels

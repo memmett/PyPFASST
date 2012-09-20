@@ -58,11 +58,6 @@ parser.add_argument('-l',
                     dest='nlevs',
                     default=3,
                     help='number of levels, defaults to 3')
-parser.add_argument('-R',
-                    dest='RK',
-                    default=False,
-                    action='store_true',
-                    help='use serial Runge-Kutta integrator')
 options = parser.parse_args()
 
 
@@ -123,4 +118,4 @@ F  = AD(shape=D*(N,), dim=D)
 q0 = np.zeros(F.shape)
 F.exact(0.0, q0)
 
-pf.run(q0=q0, dt=dt, tend=tend, RK=(4 if options.RK else None))
+pf.run(q0=q0, dt=dt, tend=tend)
