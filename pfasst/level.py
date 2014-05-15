@@ -93,10 +93,9 @@ class Level(object):
   def call_hooks(self, key, **kwargs):
     """Call hooks."""
 
-    if key in self.hooks:
-      for hook in self.hooks[key]:
-        self.pf.state.hook = key
-        hook(level=self, state=self.pf.state, pf=self.pf)
+    for hook in self.hooks.get(key, []):
+      self.pf.state.hook = key
+      hook(level=self, state=self.pf.state, pf=self.pf)
 
 
   #############################################################################
